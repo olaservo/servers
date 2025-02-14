@@ -49,6 +49,54 @@ const SampleLLMSchema = z.object({
     .number()
     .default(100)
     .describe("Maximum number of tokens to generate"),
+  systemPrompt: z
+    .string()
+    .optional()
+    .describe("Optional system prompt override"),
+  modelPreferences: z.object({
+    costPriority: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe("Priority for minimizing costs (0-1)"),
+    speedPriority: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe("Priority for minimizing latency (0-1)"),
+    intelligencePriority: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe("Priority for model capabilities (0-1)"),
+    hints: z
+      .array(z.object({
+        name: z.string().optional()
+      }))
+      .optional()
+      .describe("Optional model name hints in order of preference"),
+  }).optional(),
+  temperature: z
+    .number()
+    .min(0)
+    .max(2)
+    .optional()
+    .describe("Controls randomness in the output. Range: 0.0 to 2.0"),
+  stopSequences: z
+    .array(z.string())
+    .optional()
+    .describe("List of sequences that will stop generation"),
+  includeContext: z
+    .enum(["none", "thisServer", "allServers"])
+    .optional()
+    .describe("Whether to include MCP server context"),
+  metadata: z
+    .record(z.unknown())
+    .optional()
+    .describe("Optional provider-specific metadata"),
 });
 
 // Example completion values
@@ -403,15 +451,37 @@ export const createServer = () => {
 
     if (name === ToolName.SAMPLE_LLM) {
       const validatedArgs = SampleLLMSchema.parse(args);
-      const { prompt, maxTokens } = validatedArgs;
+      const { prompt, maxTokens, systemPrompt, modelPreferences, temperature, stopSequences, includeContext, metadata } = validatedArgs;
 
-      const result = await requestSampling(
-        prompt,
-        ToolName.SAMPLE_LLM,
-        maxTokens,
-      );
+      const request = {
+        method: "sampling/createMessage",
+        params: {
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: prompt,
+              },
+            },
+          ],
+          // Include all valid parameters according to CreateMessageRequestSchema
+          systemPrompt: systemPrompt ?? "You are a helpful test server.",
+          maxTokens,
+          modelPreferences,
+          ...(temperature !== undefined && { temperature }),
+          ...(stopSequences?.length && { stopSequences }),
+          ...(includeContext && { includeContext }),
+          ...(metadata && { metadata }),
+        },
+      };
+
+      const result = await server.request(request, CreateMessageResultSchema);
       return {
-        content: [{ type: "text", text: `LLM sampling result: ${result.content.text}` }],
+        content: [{
+          type: "text",
+          text: `Sample LLM result using model ${result.model}:\n${result.content.text}${result.stopReason ? `\nStop reason: ${result.stopReason}` : ""}`
+        }],
       };
     }
 
