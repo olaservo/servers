@@ -1,6 +1,6 @@
 {
   "name": "@modelcontextprotocol/server-everything",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "MCP server that exercises all the features of the MCP protocol",
   "license": "MIT",
   "author": "Anthropic, PBC (https://anthropic.com)",
@@ -21,7 +21,7 @@
     "start:sse": "node dist/sse.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.0.1",
+    "@modelcontextprotocol/sdk": "^1.4.1",
     "express": "^4.21.1",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.5"

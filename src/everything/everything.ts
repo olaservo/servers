@@ -43,60 +43,65 @@ const LongRunningOperationSchema = z.object({
 
 const PrintEnvSchema = z.object({});
 
+const AnnotationsSchema = z.object({
+  audience: z.array(z.enum(["user", "assistant"])).optional()
+    .describe("Describes who the intended customer of this data is"),
+  priority: z.number().min(0).max(1).optional()
+    .describe("Describes how important this data is (0 = optional, 1 = required)")
+}).optional();
+
+const TextContentSchema = z.object({
+  type: z.literal("text"),
+  text: z.string().describe("The text content of the message"),
+  annotations: AnnotationsSchema
+});
+
+const ImageContentSchema = z.object({
+  type: z.literal("image"),
+  data: z.string().describe("The base64-encoded image data"),
+  mimeType: z.string().describe("The MIME type of the image"),
+  annotations: AnnotationsSchema
+});
+
+const ContentSchema = z.union([TextContentSchema, ImageContentSchema]);
+
+const SamplingMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: ContentSchema
+});
+
+const ModelHintSchema = z.object({
+  name: z.string().optional()
+    .describe("A hint for a model name, treated as substring match")
+});
+
+const ModelPreferencesSchema = z.object({
+  hints: z.array(ModelHintSchema).optional()
+    .describe("Optional hints for model selection, evaluated in order. Prioritized over numeric priorities."),
+  costPriority: z.number().min(0).max(1).optional()
+    .describe("Priority for minimizing costs (0-1)"),
+  speedPriority: z.number().min(0).max(1).optional()
+    .describe("Priority for minimizing latency (0-1)"),
+  intelligencePriority: z.number().min(0).max(1).optional()
+    .describe("Priority for model capabilities (0-1)")
+}).optional();
+
 const SampleLLMSchema = z.object({
-  prompt: z.string().describe("The prompt to send to the LLM"),
-  maxTokens: z
-    .number()
-    .default(100)
+  messages: z.array(SamplingMessageSchema)
+    .describe("Array of messages to send to the LLM"),
+  maxTokens: z.number()
     .describe("Maximum number of tokens to generate"),
-  systemPrompt: z
-    .string()
-    .optional()
+  modelPreferences: ModelPreferencesSchema,
+  systemPrompt: z.string().optional()
     .describe("Optional system prompt override"),
-  modelPreferences: z.object({
-    costPriority: z
-      .number()
-      .min(0)
-      .max(1)
-      .optional()
-      .describe("Priority for minimizing costs (0-1)"),
-    speedPriority: z
-      .number()
-      .min(0)
-      .max(1)
-      .optional()
-      .describe("Priority for minimizing latency (0-1)"),
-    intelligencePriority: z
-      .number()
-      .min(0)
-      .max(1)
-      .optional()
-      .describe("Priority for model capabilities (0-1)"),
-    hints: z
-      .array(z.object({
-        name: z.string().optional()
-      }))
-      .optional()
-      .describe("Optional model name hints in order of preference"),
-  }).optional(),
-  temperature: z
-    .number()
-    .min(0)
-    .max(2)
-    .optional()
-    .describe("Controls randomness in the output. Range: 0.0 to 2.0"),
-  stopSequences: z
-    .array(z.string())
-    .optional()
-    .describe("List of sequences that will stop generation"),
-  includeContext: z
-    .enum(["none", "thisServer", "allServers"])
-    .optional()
+  includeContext: z.enum(["none", "thisServer", "allServers"]).optional()
     .describe("Whether to include MCP server context"),
-  metadata: z
-    .record(z.unknown())
-    .optional()
-    .describe("Optional provider-specific metadata"),
+  temperature: z.number().optional()
+    .describe("Controls randomness in the output"),
+  stopSequences: z.array(z.string()).optional()
+    .describe("List of sequences that will stop generation"),
+  metadata: z.record(z.unknown()).optional()
+    .describe("Optional provider-specific metadata")
 });
 
 // Example completion values
@@ -108,6 +113,13 @@ const EXAMPLE_COMPLETIONS = {
 
 const GetTinyImageSchema = z.object({});
 
+const AnnotatedMessageSchema = z.object({
+  messageType: z.enum(["error", "success", "debug"])
+    .describe("Type of message to demonstrate different annotation patterns"),
+  includeImage: z.boolean().default(false)
+    .describe("Whether to include an example image")
+});
+
 enum ToolName {
   ECHO = "echo",
   ADD = "add",
@@ -115,6 +127,7 @@ enum ToolName {
   PRINT_ENV = "printEnv",
   SAMPLE_LLM = "sampleLLM",
   GET_TINY_IMAGE = "getTinyImage",
+  ANNOTATED_MESSAGE = "annotatedMessage",
 }
 
 enum PromptName {
@@ -377,6 +390,11 @@ export const createServer = () => {
         description: "Returns the MCP_TINY_IMAGE",
         inputSchema: zodToJsonSchema(GetTinyImageSchema) as ToolInput,
       },
+      {
+        name: ToolName.ANNOTATED_MESSAGE,
+        description: "Demonstrates how annotations can be used to provide metadata about content",
+        inputSchema: zodToJsonSchema(AnnotatedMessageSchema) as ToolInput,
+      },
     ];
 
     return { tools };
@@ -451,37 +469,37 @@ export const createServer = () => {
 
     if (name === ToolName.SAMPLE_LLM) {
       const validatedArgs = SampleLLMSchema.parse(args);
-      const { prompt, maxTokens, systemPrompt, modelPreferences, temperature, stopSequences, includeContext, metadata } = validatedArgs;
+      const { messages, maxTokens, systemPrompt, modelPreferences, temperature, stopSequences, includeContext, metadata } = validatedArgs;
 
       const request = {
         method: "sampling/createMessage",
         params: {
-          messages: [
-            {
-              role: "user",
-              content: {
-                type: "text",
-                text: prompt,
-              },
-            },
-          ],
-          // Include all valid parameters according to CreateMessageRequestSchema
-          systemPrompt: systemPrompt ?? "You are a helpful test server.",
+          messages,
           maxTokens,
-          modelPreferences,
+          ...(systemPrompt && { systemPrompt }),
+          ...(modelPreferences && { modelPreferences }),
           ...(temperature !== undefined && { temperature }),
           ...(stopSequences?.length && { stopSequences }),
           ...(includeContext && { includeContext }),
-          ...(metadata && { metadata }),
+          ...(metadata && { metadata })
         },
       };
 
       const result = await server.request(request, CreateMessageResultSchema);
+      
+      // Return in proper format with model name and stop reason
       return {
-        content: [{
-          type: "text",
-          text: `Sample LLM result using model ${result.model}:\n${result.content.text}${result.stopReason ? `\nStop reason: ${result.stopReason}` : ""}`
-        }],
+        content: [
+          {
+            type: "text",
+            text: `Model: ${result.model}`,
+          },
+          result.content,
+          ...(result.stopReason ? [{
+            type: "text",
+            text: `Stop reason: ${result.stopReason}`
+          }] : [])
+        ],
       };
     }
 
@@ -504,6 +522,57 @@ export const createServer = () => {
           },
         ],
       };
+    }
+
+    if (name === ToolName.ANNOTATED_MESSAGE) {
+      const { messageType, includeImage } = AnnotatedMessageSchema.parse(args);
+      
+      const content = [];
+
+      // Main message with different priorities/audiences based on type
+      if (messageType === "error") {
+        content.push({
+          type: "text",
+          text: "Error: Operation failed",
+          annotations: {
+            priority: 1.0, // Errors are highest priority
+            audience: ["user", "assistant"] // Both need to know about errors
+          }
+        });
+      } else if (messageType === "success") {
+        content.push({
+          type: "text",
+          text: "Operation completed successfully",
+          annotations: {
+            priority: 0.7, // Success messages are important but not critical
+            audience: ["user"] // Success mainly for user consumption
+          }
+        });
+      } else if (messageType === "debug") {
+        content.push({
+          type: "text",
+          text: "Debug: Cache hit ratio 0.95, latency 150ms",
+          annotations: {
+            priority: 0.3, // Debug info is low priority
+            audience: ["assistant"] // Technical details for assistant
+          }
+        });
+      }
+
+      // Optional image with its own annotations
+      if (includeImage) {
+        content.push({
+          type: "image",
+          data: MCP_TINY_IMAGE,
+          mimeType: "image/png",
+          annotations: {
+            priority: 0.5,
+            audience: ["user"] // Images primarily for user visualization
+          }
+        });
+      }
+
+      return { content };
     }
 
     throw new Error(`Unknown tool: ${name}`);
