@@ -6,7 +6,7 @@ from tzlocal import get_localzone
 from zoneinfo import ZoneInfo
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
+from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource, ErrorData, INVALID_PARAMS
 from mcp.shared.exceptions import McpError
 
 from pydantic import BaseModel
@@ -51,14 +51,22 @@ def get_local_tz(local_tz_override: str | None = None) -> ZoneInfo:
     if tzinfo is not None:
         return ZoneInfo(str(tzinfo))
 
-    raise McpError("Could not determine local timezone - tzinfo is None")
+    error_data = ErrorData(
+        code=INVALID_PARAMS,
+        message="Could not determine local timezone - tzinfo is None"
+    )
+    raise McpError(error_data)
 
 
 def get_zoneinfo(timezone_name: str) -> ZoneInfo:
     try:
         return ZoneInfo(timezone_name)
     except Exception as e:
-        raise McpError(f"Invalid timezone: {str(e)}")
+        error_data = ErrorData(
+            code=INVALID_PARAMS,
+            message=f"Invalid timezone: {str(e)}"
+        )
+        raise McpError(error_data)
 
 
 class TimeServer:
