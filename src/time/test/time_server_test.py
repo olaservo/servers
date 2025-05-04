@@ -1,8 +1,9 @@
 from freezegun import freeze_time
 from mcp.shared.exceptions import McpError
 import pytest
+from zoneinfo import ZoneInfo
 
-from mcp_server_time.server import TimeServer
+from mcp_server_time.server import TimeServer, get_local_tz
 
 
 @pytest.mark.parametrize(
@@ -86,6 +87,41 @@ def test_get_current_time_with_invalid_timezone():
         match=r"Invalid timezone: 'No time zone found with key Invalid/Timezone'",
     ):
         time_server.get_current_time("Invalid/Timezone")
+
+
+@pytest.mark.parametrize(
+    "test_time,local_tz_override,expected_error",
+    [
+        # Test Windows format timezone override
+        (
+            "2024-01-01 12:00:00+00:00",
+            "America/Los_Angeles",  # What Windows "Pacific Standard Time" should map to
+            None,
+        ),
+        # Test direct IANA name
+        (
+            "2024-01-01 12:00:00+00:00", 
+            "Europe/Berlin",  # What "Mitteleuropäische Zeit" should map to
+            None,
+        ),
+        # Test invalid timezone
+        (
+            "2024-01-01 12:00:00+00:00",
+            "Invalid/Timezone",
+            "Invalid timezone: 'No time zone found with key Invalid/Timezone'",
+        ),
+    ],
+)
+def test_get_local_tz_override(test_time, local_tz_override, expected_error):
+    """Test local timezone override functionality"""
+    with freeze_time(test_time):
+        if expected_error:
+            with pytest.raises(McpError, match=expected_error):
+                get_local_tz(local_tz_override)
+        else:
+            result = get_local_tz(local_tz_override)
+            assert isinstance(result, ZoneInfo)
+            assert str(result) == local_tz_override
 
 
 @pytest.mark.parametrize(

@@ -37,7 +37,14 @@ class TimeConversionInput(BaseModel):
 
 def get_local_tz(local_tz_override: str | None = None) -> ZoneInfo:
     if local_tz_override:
-        return ZoneInfo(local_tz_override)
+        try:
+            return ZoneInfo(local_tz_override)
+        except Exception as e:
+            error_data = ErrorData(
+                code=INVALID_PARAMS,
+                message=f"Invalid timezone: {str(e)}"
+            )
+            raise McpError(error_data)
 
     # First, try to get local timezone from tzlocal
     try:
