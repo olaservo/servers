@@ -14,7 +14,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import puppeteer, { Browser, Page } from "puppeteer";
 
-// Default viewport dimensions
 const DEFAULT_VIEWPORT_WIDTH = 800;
 const DEFAULT_VIEWPORT_HEIGHT = 600;
 
@@ -168,7 +167,6 @@ async function ensureBrowser({ launchOptions, allowDangerous }: any) {
       mergedConfig
     );
     
-    // Store viewport settings from launch options
     if (finalConfig.defaultViewport) {
       storedViewport = {
         width: finalConfig.defaultViewport.width || DEFAULT_VIEWPORT_WIDTH,
@@ -180,7 +178,6 @@ async function ensureBrowser({ launchOptions, allowDangerous }: any) {
     const pages = await browser.pages();
     page = pages[0];
 
-    // Apply stored viewport settings
     if (storedViewport) {
       await page.setViewport(storedViewport);
     }
@@ -277,7 +274,6 @@ async function handleToolCall(name: string, args: any): Promise<CallToolResult> 
         method: "notifications/resources/list_changed",
       });
 
-      // Restore previous viewport if we changed it
       if (previousViewport) {
         await page.setViewport(previousViewport);
       }
