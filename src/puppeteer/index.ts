@@ -42,6 +42,7 @@ const TOOLS: Tool[] = [
         selector: { type: "string", description: "CSS selector for element to screenshot" },
         width: { type: "number", description: `Width in pixels (uses value from tool call if provided, otherwise from PUPPETEER_LAUNCH_OPTIONS if set, finally defaults to ${DEFAULT_VIEWPORT_WIDTH})` },
         height: { type: "number", description: `Height in pixels (uses value from tool call if provided, otherwise from PUPPETEER_LAUNCH_OPTIONS if set, finally defaults to ${DEFAULT_VIEWPORT_HEIGHT})` },
+        encoded: { type: "boolean", description: "If true, capture the screenshot as a base64-encoded data URI (as text) instead of binary image content. Default false." },
       },
       required: ["name"],
     },
@@ -244,6 +245,7 @@ async function handleToolCall(name: string, args: any): Promise<CallToolResult> 
 
     case "puppeteer_screenshot": {
       let previousViewport = null;
+      const encoded = args.encoded ?? false;
       
       // Only change viewport if explicitly requested
       if (args.width !== undefined || args.height !== undefined) {
@@ -253,7 +255,6 @@ async function handleToolCall(name: string, args: any): Promise<CallToolResult> 
         const width = args.width ?? (storedViewport?.width ?? DEFAULT_VIEWPORT_WIDTH);
         const height = args.height ?? (storedViewport?.height ?? DEFAULT_VIEWPORT_HEIGHT);
         await page.setViewport({ width, height });
-      }
 
       const screenshot = await (args.selector ?
         (await page.$(args.selector))?.screenshot({ encoding: "base64" }) :
@@ -284,11 +285,14 @@ async function handleToolCall(name: string, args: any): Promise<CallToolResult> 
             type: "text",
             text: `Screenshot '${args.name}' taken at ${page.viewport()?.width}x${page.viewport()?.height}`,
           } as TextContent,
-          {
+          encoded ? ({
+            type: "text",
+            text: `data:image/png;base64,${screenshot}`,
+          } as TextContent) : ({
             type: "image",
             data: screenshot,
             mimeType: "image/png",
-          } as ImageContent,
+          } as ImageContent),
         ],
         isError: false,
       };
