@@ -255,6 +255,7 @@ async function handleToolCall(name: string, args: any): Promise<CallToolResult> 
         const width = args.width ?? (storedViewport?.width ?? DEFAULT_VIEWPORT_WIDTH);
         const height = args.height ?? (storedViewport?.height ?? DEFAULT_VIEWPORT_HEIGHT);
         await page.setViewport({ width, height });
+      }
 
       const screenshot = await (args.selector ?
         (await page.$(args.selector))?.screenshot({ encoding: "base64" }) :
