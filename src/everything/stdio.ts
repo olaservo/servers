@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer } from "./everything.js";
+import { createServer } from "./everything-resources.js";
 
 console.error('Starting default (STDIO) server...');
 
