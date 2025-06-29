@@ -19,7 +19,8 @@
     "watch": "tsc --watch",
     "start": "node dist/index.js",
     "start:sse": "node dist/sse.js",
-    "start:streamableHttp": "node dist/streamableHttp.js"
+    "start:streamableHttp": "node dist/streamableHttp.js",
+    "test": "jest --config=jest.config.cjs --coverage"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.1",
@@ -28,8 +29,12 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
     "shx": "^0.3.4",
+    "ts-jest": "^29.1.1",
     "typescript": "^5.6.2"
   }
 }
