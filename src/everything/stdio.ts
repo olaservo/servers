@@ -7,9 +7,12 @@ console.error('Starting default (STDIO) server...');
 
 async function main() {
   const transport = new StdioServerTransport();
-  const {server, cleanup} = createServer();
+  const {server, cleanup, startBackgroundTasks} = createServer();
 
   await server.connect(transport);
+
+  // Start background notification tasks AFTER the server is connected
+  startBackgroundTasks();
 
   // Cleanup on exit
   process.on("SIGINT", async () => {
@@ -23,4 +26,3 @@ main().catch((error) => {
   console.error("Server error:", error);
   process.exit(1);
 });
-

@@ -22,7 +22,7 @@ app.post('/mcp', async (req: Request, res: Response) => {
       transport = transports.get(sessionId)!;
     } else if (!sessionId) {
 
-      const { server, cleanup } = createServer();
+      const { server, cleanup, startBackgroundTasks } = createServer();
 
       // New initialization request
       const eventStore = new InMemoryEventStore();
@@ -51,6 +51,9 @@ app.post('/mcp', async (req: Request, res: Response) => {
       // Connect the transport to the MCP server BEFORE handling the request
       // so responses can flow back through the same transport
       await server.connect(transport);
+
+      // Start background notification tasks AFTER the server is connected
+      startBackgroundTasks();
 
       await transport.handleRequest(req, res);
       return; // Already handled
