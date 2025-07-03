@@ -6,6 +6,7 @@
 - Run server: `npm run start` - Starts the MCP server using stdio transport
 - Run SSE server: `npm run start:sse` - Starts the MCP server with SSE transport
 - Prepare release: `npm run prepare` - Builds the project for publishing
+- Run tests: `npm run test`
 
 ## Code Style Guidelines
 - Use ES modules with `.js` extension in import paths
@@ -18,3 +19,4 @@
 - Follow camelCase for variables/functions, PascalCase for types/classes, UPPER_CASE for constants
 - Handle errors with try/catch blocks and provide clear error messages
 - Use consistent indentation (2 spaces) and trailing commas in multi-line objects
+- Keep monolithic everything.ts structure intact as a single reference point for LLMs
