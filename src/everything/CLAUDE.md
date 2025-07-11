@@ -19,4 +19,3 @@
 - Follow camelCase for variables/functions, PascalCase for types/classes, UPPER_CASE for constants
 - Handle errors with try/catch blocks and provide clear error messages
 - Use consistent indentation (2 spaces) and trailing commas in multi-line objects
-- Keep monolithic everything.ts structure intact as a single reference point for LLMs
