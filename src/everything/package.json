@@ -23,7 +23,7 @@
     "test": "jest --config=jest.config.cjs --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.13.1",
+    "@modelcontextprotocol/sdk": "^1.15.1",
     "express": "^4.21.1",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.5"
