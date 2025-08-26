@@ -22,7 +22,7 @@ import { isPathWithinAllowedDirectories } from './path-validation.js';
 import { getValidRootDirectories } from './roots-utils.js';
 
 // Constants and config
-const DEFAULT_MAX_LINES = 5000;
+const DEFAULT_MAX_LINES = 100;
 const DEFAULT_CHUNK_SIZE = 1024;
 const config = {
   maxLines: process.env.MCP_FILESYSTEM_MAX_LINES ? 
