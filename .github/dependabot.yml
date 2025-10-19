@@ -1,51 +1,35 @@
 version: 2
+groups:
+  npm-dependencies:
+    patterns:
+      - "*"
 updates:
   # Root npm dependencies
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
 
   # TypeScript/Node.js servers
   - package-ecosystem: "npm"
     directory: "/src/everything"
     schedule:
       interval: "weekly"
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
 
   - package-ecosystem: "npm"
     directory: "/src/filesystem"
     schedule:
       interval: "weekly"
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
 
   - package-ecosystem: "npm"
     directory: "/src/memory"
     schedule:
       interval: "weekly"
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
 
   - package-ecosystem: "npm"
     directory: "/src/sequentialthinking"
     schedule:
       interval: "weekly"
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
 
   # Python servers
   - package-ecosystem: "pip"
