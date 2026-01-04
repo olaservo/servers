@@ -16,6 +16,7 @@ from mcp_server_git.server import (
     git_create_branch,
     git_show,
     validate_repo_path,
+    validate_file_path,
 )
 import shutil
 
@@ -423,3 +424,97 @@ def test_git_checkout_rejects_malicious_refs(test_repository):
 
     # Cleanup
     malicious_ref_path.unlink()
+
+
+# Tests for git_add path traversal vulnerability (CVE fix)
+
+def test_git_add_rejects_path_traversal(test_repository):
+    """git_add should reject path traversal attempts using ../"""
+    with pytest.raises(ValueError) as exc_info:
+        git_add(test_repository, ["../../../etc/passwd"])
+    assert "outside the repository" in str(exc_info.value)
+
+
+def test_git_add_rejects_absolute_path_outside_repo(test_repository, tmp_path: Path):
+    """git_add should reject absolute paths outside the repository."""
+    outside_file = tmp_path / "outside_file.txt"
+    outside_file.write_text("sensitive data")
+
+    with pytest.raises(ValueError) as exc_info:
+        git_add(test_repository, [str(outside_file)])
+    assert "outside the repository" in str(exc_info.value)
+
+
+def test_git_add_rejects_kube_config_traversal(test_repository):
+    """git_add should reject attempts to stage ~/.kube/config via traversal."""
+    with pytest.raises(ValueError) as exc_info:
+        git_add(test_repository, ["../../../.kube/config"])
+    assert "outside the repository" in str(exc_info.value)
+
+
+def test_git_add_rejects_ssh_key_traversal(test_repository):
+    """git_add should reject attempts to stage ~/.ssh/id_rsa via traversal."""
+    with pytest.raises(ValueError) as exc_info:
+        git_add(test_repository, ["../../../.ssh/id_rsa"])
+    assert "outside the repository" in str(exc_info.value)
+
+
+def test_git_add_allows_valid_files_in_repo(test_repository):
+    """git_add should still work for valid files within the repository."""
+    file_path = Path(test_repository.working_dir) / "valid_file.txt"
+    file_path.write_text("valid content")
+
+    result = git_add(test_repository, ["valid_file.txt"])
+
+    assert result == "Files staged successfully"
+    staged_files = [item.a_path for item in test_repository.index.diff("HEAD")]
+    assert "valid_file.txt" in staged_files
+
+
+def test_git_add_allows_subdirectory_files(test_repository):
+    """git_add should allow files in subdirectories within the repository."""
+    subdir = Path(test_repository.working_dir) / "subdir"
+    subdir.mkdir()
+    file_path = subdir / "nested_file.txt"
+    file_path.write_text("nested content")
+
+    result = git_add(test_repository, ["subdir/nested_file.txt"])
+
+    assert result == "Files staged successfully"
+    staged_files = [item.a_path for item in test_repository.index.diff("HEAD")]
+    assert "subdir/nested_file.txt" in staged_files
+
+
+def test_validate_file_path_rejects_traversal(test_repository):
+    """validate_file_path should reject path traversal attempts."""
+    with pytest.raises(ValueError) as exc_info:
+        validate_file_path("../../../etc/passwd", test_repository)
+    assert "outside the repository" in str(exc_info.value)
+
+
+def test_validate_file_path_rejects_absolute_outside(test_repository, tmp_path: Path):
+    """validate_file_path should reject absolute paths outside repo."""
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside")
+
+    with pytest.raises(ValueError) as exc_info:
+        validate_file_path(str(outside), test_repository)
+    assert "outside the repository" in str(exc_info.value)
+
+
+def test_validate_file_path_allows_valid_relative(test_repository):
+    """validate_file_path should allow valid relative paths in repo."""
+    file_path = Path(test_repository.working_dir) / "valid.txt"
+    file_path.write_text("valid")
+
+    # Should not raise
+    validate_file_path("valid.txt", test_repository)
+
+
+def test_validate_file_path_allows_valid_absolute_in_repo(test_repository):
+    """validate_file_path should allow absolute paths within the repo."""
+    file_path = Path(test_repository.working_dir) / "valid_abs.txt"
+    file_path.write_text("valid")
+
+    # Should not raise
+    validate_file_path(str(file_path), test_repository)

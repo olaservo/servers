@@ -132,6 +132,10 @@ def git_add(repo: git.Repo, files: list[str]) -> str:
     if files == ["."]:
         repo.git.add(".")
     else:
+        # Validate all file paths are within repository boundary
+        # to prevent path traversal attacks (e.g., '../../../.ssh/id_rsa')
+        for file_path in files:
+            validate_file_path(file_path, repo)
         repo.index.add(files)
     return "Files staged successfully"
 
@@ -236,6 +240,32 @@ def validate_repo_path(repo_path: Path, allowed_repository: Path | None) -> None
     except ValueError:
         raise ValueError(
             f"Repository path '{repo_path}' is outside the allowed repository '{allowed_repository}'"
+        )
+
+
+def validate_file_path(file_path: str, repo: git.Repo) -> None:
+    """Validate that a file path is within the repository boundary.
+
+    This prevents path traversal attacks where malicious paths like
+    '../../../.ssh/id_rsa' could be used to stage files outside the repo.
+    """
+    repo_root = Path(repo.working_dir).resolve()
+
+    # Resolve the file path relative to repo root
+    try:
+        if Path(file_path).is_absolute():
+            resolved_file = Path(file_path).resolve()
+        else:
+            resolved_file = (repo_root / file_path).resolve()
+    except (OSError, RuntimeError):
+        raise ValueError(f"Invalid file path: {file_path}")
+
+    # Check if resolved path is within repo boundary
+    try:
+        resolved_file.relative_to(repo_root)
+    except ValueError:
+        raise ValueError(
+            f"Path '{file_path}' is outside the repository"
         )
 
 
