@@ -518,3 +518,50 @@ def test_validate_file_path_allows_valid_absolute_in_repo(test_repository):
 
     # Should not raise
     validate_file_path(str(file_path), test_repository)
+
+
+# Tests for git_create_branch argument injection protection
+
+def test_git_create_branch_rejects_flag_injection(test_repository):
+    """git_create_branch should reject branch names starting with '-'."""
+    with pytest.raises(ValueError) as exc_info:
+        git_create_branch(test_repository, "--help")
+    assert "cannot start with '-'" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        git_create_branch(test_repository, "--exec=calc.exe")
+    assert "cannot start with '-'" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        git_create_branch(test_repository, "-d")
+    assert "cannot start with '-'" in str(exc_info.value)
+
+
+def test_git_create_branch_rejects_malicious_base_branch(test_repository):
+    """git_create_branch should reject base_branch names starting with '-'."""
+    with pytest.raises(ValueError) as exc_info:
+        git_create_branch(test_repository, "new-branch", "--help")
+    assert "cannot start with '-'" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        git_create_branch(test_repository, "new-branch", "--exec=malicious")
+    assert "cannot start with '-'" in str(exc_info.value)
+
+
+def test_git_create_branch_allows_valid_names(test_repository):
+    """git_create_branch should work with valid branch names."""
+    result = git_create_branch(test_repository, "feature-branch")
+    assert "Created branch 'feature-branch'" in result
+
+    branches = [ref.name for ref in test_repository.references]
+    assert "feature-branch" in branches
+
+
+def test_git_create_branch_allows_valid_base_branch(test_repository):
+    """git_create_branch should work with valid base branch names."""
+    # Get the default branch name
+    default_branch = test_repository.active_branch.name
+
+    result = git_create_branch(test_repository, "derived-feature", default_branch)
+    assert "Created branch 'derived-feature'" in result
+    assert default_branch in result

@@ -180,6 +180,13 @@ def git_log(repo: git.Repo, max_count: int = 10, start_timestamp: Optional[str] 
         return log
 
 def git_create_branch(repo: git.Repo, branch_name: str, base_branch: str | None = None) -> str:
+    # Defense in depth: reject branch names starting with '-' to prevent
+    # creating refs that could be interpreted as flags by other git commands
+    if branch_name.startswith("-"):
+        raise ValueError(f"Invalid branch name: '{branch_name}' - cannot start with '-'")
+    if base_branch and base_branch.startswith("-"):
+        raise ValueError(f"Invalid base branch: '{base_branch}' - cannot start with '-'")
+
     if base_branch:
         base = repo.references[base_branch]
     else:
