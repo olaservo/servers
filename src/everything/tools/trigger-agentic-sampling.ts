@@ -150,11 +150,9 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
     samplingCapability !== null &&
     "tools" in samplingCapability;
 
-  if (!clientSupportsSamplingWithTools) {
-    return;
-  }
-
-  server.registerTool(name, config, async (args, extra): Promise<CallToolResult> => {
+  // If so, register tool
+  if (clientSupportsSamplingWithTools) {
+    server.registerTool(name, config, async (args, extra): Promise<CallToolResult> => {
     const validatedArgs = TriggerAgenticSamplingSchema.parse(args);
     const { prompt, maxTokens, maxIterations, availableTools } = validatedArgs;
 
@@ -300,8 +298,9 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
 
     responseText += `\nFinal response:\n${finalResponse}`;
 
-    return {
-      content: [{ type: "text", text: responseText }],
-    };
-  });
+      return {
+        content: [{ type: "text", text: responseText }],
+      };
+    });
+  }
 };
