@@ -151,13 +151,8 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
     "tools" in samplingCapability;
 
   if (!clientSupportsSamplingWithTools) {
-    console.log(
-      "[trigger-agentic-sampling] Not registering - client does not support sampling.tools"
-    );
     return;
   }
-
-  console.log("[trigger-agentic-sampling] Registering - client supports sampling.tools");
 
   server.registerTool(name, config, async (args, extra): Promise<CallToolResult> => {
     const validatedArgs = TriggerAgenticSamplingSchema.parse(args);
@@ -180,7 +175,7 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
       };
     }
 
-    console.log(
+    console.error(
       `[trigger-agentic-sampling] Starting with prompt: "${prompt.substring(0, 50)}..." ` +
         `(${tools.length} tools, max ${maxIterations} iterations)`
     );
@@ -200,7 +195,7 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
     // Agentic loop
     while (iteration < maxIterations) {
       iteration++;
-      console.log(`[trigger-agentic-sampling] Iteration ${iteration}/${maxIterations}`);
+      console.error(`[trigger-agentic-sampling] Iteration ${iteration}/${maxIterations}`);
 
       // Build and send sampling request
       // On last iteration, use toolChoice: none to force final response
@@ -223,7 +218,7 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
       // Send the sampling request to the client
       const result = await extra.sendRequest(request, CreateMessageResultWithToolsSchema);
 
-      console.log(`[trigger-agentic-sampling] Got response with stopReason: ${result.stopReason}`);
+      console.error(`[trigger-agentic-sampling] Got response with stopReason: ${result.stopReason}`);
 
       // Check if LLM wants to use tools
       if (result.stopReason === "toolUse") {
@@ -234,7 +229,7 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
         );
 
         if (toolUseBlocks.length === 0) {
-          console.log(
+          console.error(
             "[trigger-agentic-sampling] stopReason=toolUse but no tool_use blocks found"
           );
           finalResponse = "Error: Received toolUse stop reason but no tool_use blocks";
@@ -250,7 +245,7 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
         // Execute each tool and collect results
         const toolResults: ToolResultContent[] = [];
         for (const toolUse of toolUseBlocks) {
-          console.log(
+          console.error(
             `[trigger-agentic-sampling] Executing tool: ${toolUse.name}(${JSON.stringify(toolUse.input)})`
           );
 
@@ -284,7 +279,7 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
           textBlock?.type === "text"
             ? (textBlock as TextContent).text
             : JSON.stringify(result.content);
-        console.log(
+        console.error(
           `[trigger-agentic-sampling] Final response received (stopReason: ${result.stopReason})`
         );
         break;
