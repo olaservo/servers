@@ -14,6 +14,9 @@ import { registerToggleSubscriberUpdatesTool } from "./toggle-subscriber-updates
 import { registerTriggerElicitationRequestTool } from "./trigger-elicitation-request.js";
 import { registerTriggerLongRunningOperationTool } from "./trigger-long-running-operation.js";
 import { registerTriggerSamplingRequestTool } from "./trigger-sampling-request.js";
+import { registerTriggerAgenticSamplingTool } from "./trigger-agentic-sampling.js";
+import { registerToggleDynamicToolTool } from "./toggle-dynamic-tool.js";
+import { registerSimulateResearchQueryTool } from "./simulate-research-query.js";
 
 /**
  * Register the tools with the MCP server.
@@ -32,6 +35,7 @@ export const registerTools = (server: McpServer) => {
   registerToggleSimulatedLoggingTool(server);
   registerToggleSubscriberUpdatesTool(server);
   registerTriggerLongRunningOperationTool(server);
+  registerToggleDynamicToolTool(server);
 };
 
 /**
@@ -42,4 +46,7 @@ export const registerConditionalTools = (server: McpServer) => {
   registerGetRootsListTool(server);
   registerTriggerElicitationRequestTool(server);
   registerTriggerSamplingRequestTool(server);
+  registerTriggerAgenticSamplingTool(server);
+  // Task-based research tool (uses experimental tasks API)
+  registerSimulateResearchQueryTool(server);
 };
