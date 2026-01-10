@@ -15,6 +15,11 @@ import { registerTriggerElicitationRequestTool } from "./trigger-elicitation-req
 import { registerTriggerLongRunningOperationTool } from "./trigger-long-running-operation.js";
 import { registerTriggerSamplingRequestTool } from "./trigger-sampling-request.js";
 
+// SEP-834 Demo Tools
+import { registerSep834ListUsersTool } from "./sep834-list-users.js";
+import { registerSep834FindResourceTool } from "./sep834-find-resource.js";
+import { registerSep834CountItemsTool } from "./sep834-count-items.js";
+
 /**
  * Register the tools with the MCP server.
  * @param server
@@ -32,6 +37,11 @@ export const registerTools = (server: McpServer) => {
   registerToggleSimulatedLoggingTool(server);
   registerToggleSubscriberUpdatesTool(server);
   registerTriggerLongRunningOperationTool(server);
+
+  // SEP-834 Demo Tools
+  registerSep834ListUsersTool(server);
+  registerSep834FindResourceTool(server);
+  registerSep834CountItemsTool(server);
 };
 
 /**
