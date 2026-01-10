@@ -23,7 +23,7 @@ const USERS = [
   { id: "u3", name: "Charlie", email: "charlie@example.com" },
 ];
 
-// Tool input schema
+// Tool input schema - using shorthand format like get-structured-content.ts
 const Sep834ListUsersInputSchema = {
   limit: z
     .number()
