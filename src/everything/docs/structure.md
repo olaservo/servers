@@ -129,7 +129,7 @@ src/everything
 - `echo.ts`
   - Registers an `echo` tool that takes a message and returns `Echo: {message}`.
 - `get-annotated-message.ts`
-  - Registers an `annotated-message` tool which demonstrates annotated content items by emitting a primary `text` message with `annotations` that vary by `messageType` (`"error" | "success" | "debug"`), and optionally includes an annotated `image` (tiny PNG) when `includeImage` is true.
+  - Registers an `annotated-message` tool which demonstrates both tool-level annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) and content annotations. Emits a primary `text` message with content `annotations` (`priority`, `audience`) that vary by `messageType` (`"error" | "success" | "debug"`), and optionally includes an annotated `image` (tiny PNG) when `includeImage` is true.
 - `get-env.ts`
   - Registers a `get-env` tool that returns the current process environment variables as formatted JSON text; useful for debugging configuration.
 - `get-resource-links.ts`
