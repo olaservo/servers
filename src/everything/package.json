@@ -1,6 +1,6 @@
 {
   "name": "@olaservo/mcp-server-everything-sep834",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server demonstrating SEP-834 JSON Schema 2020-12 support (arrays, primitives, compositions)",
   "license": "MIT",
   "author": "Ola Hungerford (@olaservo)",

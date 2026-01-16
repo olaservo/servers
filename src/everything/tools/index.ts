@@ -16,7 +16,7 @@ import { registerTriggerLongRunningOperationTool } from "./trigger-long-running-
 import { registerTriggerSamplingRequestTool } from "./trigger-sampling-request.js";
 
 // SEP-834: JSON Schema 2020-12 demo tools
-import { registerGetArrayContentTool } from "./get-array-content.js";
+import { registerGetWeatherForecastTool } from "./get-weather-forecast.js";
 import { registerFindByIdOrNameTool } from "./find-by-id-or-name.js";
 import { registerGetCountTool } from "./get-count.js";
 
@@ -39,7 +39,7 @@ export const registerTools = (server: McpServer) => {
   registerTriggerLongRunningOperationTool(server);
 
   // SEP-834: JSON Schema 2020-12 demo tools
-  registerGetArrayContentTool(server);
+  registerGetWeatherForecastTool(server);
   registerFindByIdOrNameTool(server);
   registerGetCountTool(server);
 };
