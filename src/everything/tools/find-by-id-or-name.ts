@@ -11,12 +11,12 @@ import {
  * Demonstrates using optional properties to allow flexible input patterns.
  * The tool accepts either an 'id' OR a 'name' parameter for resource lookup.
  *
- * This pattern approximates the oneOf composition that SEP-834 enables at
- * the raw JSON Schema level. While McpServer's Zod-based API uses optional
- * properties, the underlying JSON Schema can use oneOf/anyOf compositions.
+ * SEP-834 allows any valid JSON Schema for inputSchema, including:
+ * - Composition keywords at root: oneOf, anyOf, allOf
+ * - Traditional object schemas with optional properties
  *
- * Before SEP-834: inputSchema required type: "object" at root
- * After SEP-834: inputSchema can be any valid JSON Schema including compositions
+ * This example uses optional properties via Zod. For raw JSON Schema,
+ * you could use oneOf at root to define mutually exclusive input patterns.
  */
 
 // Mock resource data
