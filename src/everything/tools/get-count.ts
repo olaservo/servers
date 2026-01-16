@@ -6,15 +6,18 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 /**
- * SEP-834 Demo Tool: Primitive Output Schema
+ * SEP-834 Demo Tool: Raw Primitive Output
  *
- * Demonstrates returning a simple count value in structuredContent.
- * While the output is wrapped in an object for Zod compatibility,
- * SEP-834 enables raw primitive values in structuredContent at the
- * protocol level.
+ * Demonstrates returning a RAW NUMBER directly in structuredContent.
+ * This shows SEP-834's support for primitive values.
  *
- * Before SEP-834: structuredContent had to be { [key: string]: unknown }
- * After SEP-834: structuredContent can be any JSON value including primitives
+ * Before SEP-834:
+ *   - structuredContent MUST be an object: { count: 42 }
+ *   - Even simple values needed object wrappers
+ *
+ * After SEP-834:
+ *   - structuredContent can be the number directly: 42
+ *   - Clean, simple responses for simple data
  */
 
 // Mock collection sizes
@@ -32,28 +35,35 @@ const GetCountInputSchema = {
     .describe("Which collection to count"),
 };
 
-// Tool output schema - simple count value
-const GetCountOutputSchema = z.object({
-  count: z.number().describe("Number of items in the collection"),
-  collection: z.string().describe("Name of the counted collection"),
-});
+// SEP-834: Raw JSON Schema with number at root level
+// The output is just a number, not wrapped in an object
+const GetCountOutputSchema = {
+  type: "integer",
+  description: "The count of items in the collection (returned as raw number)",
+  minimum: 0,
+};
 
 // Tool configuration
+// NOTE: The `as any` casts are required because the current SDK enforces object-only types.
+// SEP-834 proposes loosening these restrictions. With the modified SDK (branch sep-834-v1x),
+// these casts would not be needed.
 const name = "get-count";
 const config = {
   title: "Get Count Tool (SEP-834)",
   description:
-    "Returns the count of items in a collection. Demonstrates SEP-834 support for simple/primitive output values.",
+    "Returns a RAW NUMBER count directly in structuredContent (not wrapped in an object). Demonstrates SEP-834 primitive output support.",
   inputSchema: GetCountInputSchema,
-  outputSchema: GetCountOutputSchema,
+  outputSchema: GetCountOutputSchema as any, // SEP-834: primitive schema at root
 };
 
 /**
  * Registers the 'get-count' tool.
  *
- * This tool demonstrates SEP-834's support for simple output values.
- * While wrapped in an object for the Zod API, this pattern shows how
- * structuredContent can carry simple data structures.
+ * This tool demonstrates SEP-834's support for primitive output values.
+ *
+ * Compare:
+ *   Before SEP-834: { "count": 42 }  // Forced wrapper
+ *   After SEP-834:  42               // Direct primitive
  *
  * @param {McpServer} server - The McpServer instance where the tool will be registered.
  */
@@ -62,16 +72,15 @@ export const registerGetCountTool = (server: McpServer) => {
     const collection = args.collection as string;
     const count = COLLECTIONS[collection] ?? 0;
 
-    const result = { count, collection };
-
     const backwardCompatibleContentBlock: ContentBlock = {
       type: "text",
-      text: `${collection}: ${count} items`,
+      text: `${count}`,
     };
 
+    // SEP-834: Return the number DIRECTLY, not wrapped in { count: ... }
     return {
       content: [backwardCompatibleContentBlock],
-      structuredContent: result,
+      structuredContent: count as any, // SEP-834: raw primitive in structuredContent
     };
   });
 };

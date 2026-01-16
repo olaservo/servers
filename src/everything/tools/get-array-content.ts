@@ -6,14 +6,18 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 /**
- * SEP-834 Demo Tool: Array Output Schema
+ * SEP-834 Demo Tool: Raw Array Output
  *
- * Demonstrates returning an array in structuredContent with a corresponding
- * array output schema. This is enabled by SEP-834's loosening of the
- * type restrictions on outputSchema and structuredContent.
+ * Demonstrates returning a RAW ARRAY directly in structuredContent.
+ * This is the key capability enabled by SEP-834.
  *
- * Before SEP-834: structuredContent had to be { [key: string]: unknown }
- * After SEP-834: structuredContent can be any JSON value, including arrays
+ * Before SEP-834:
+ *   - structuredContent MUST be an object: { users: [...] }
+ *   - Forced unnecessary wrapper objects
+ *
+ * After SEP-834:
+ *   - structuredContent can be the array directly: [...]
+ *   - Matches natural API response patterns (GitHub Events, AccuWeather, etc.)
  */
 
 // Mock user data
@@ -22,13 +26,6 @@ const USERS = [
   { id: "u2", name: "Bob", email: "bob@example.com" },
   { id: "u3", name: "Charlie", email: "charlie@example.com" },
 ];
-
-// User schema for array items
-const UserSchema = z.object({
-  id: z.string().describe("User ID"),
-  name: z.string().describe("User's full name"),
-  email: z.string().describe("User's email address"),
-});
 
 // Tool input schema
 const GetArrayContentInputSchema = {
@@ -40,27 +37,44 @@ const GetArrayContentInputSchema = {
     .describe("Maximum number of users to return"),
 };
 
-// Tool output schema - SEP-834: Array at root level
-const GetArrayContentOutputSchema = z.object({
-  users: z.array(UserSchema).describe("Array of user objects"),
-});
+// SEP-834: Raw JSON Schema with array at root level (not wrapped in object)
+// This is what SEP-834 enables - outputSchema can be any valid JSON Schema
+const GetArrayContentOutputSchema = {
+  type: "array",
+  description: "Array of user objects returned directly (not wrapped)",
+  items: {
+    type: "object",
+    properties: {
+      id: { type: "string", description: "User ID" },
+      name: { type: "string", description: "User's full name" },
+      email: { type: "string", description: "User's email address" },
+    },
+    required: ["id", "name", "email"],
+  },
+};
 
 // Tool configuration
+// NOTE: The `as any` casts are required because the current SDK enforces object-only types.
+// SEP-834 proposes loosening these restrictions. With the modified SDK (branch sep-834-v1x),
+// these casts would not be needed.
 const name = "get-array-content";
 const config = {
   title: "Get Array Content Tool (SEP-834)",
   description:
-    "Returns an array of users in structuredContent. Demonstrates SEP-834 array output schema support.",
+    "Returns a RAW ARRAY of users directly in structuredContent (not wrapped in an object). This demonstrates the key SEP-834 capability.",
   inputSchema: GetArrayContentInputSchema,
-  outputSchema: GetArrayContentOutputSchema,
+  outputSchema: GetArrayContentOutputSchema as any, // SEP-834: array schema at root
 };
 
 /**
  * Registers the 'get-array-content' tool.
  *
- * This tool demonstrates SEP-834's support for array output schemas.
- * The structuredContent contains an object with a 'users' array property,
- * validated against the array output schema.
+ * This tool demonstrates SEP-834's core value proposition: returning arrays
+ * directly without unnecessary object wrappers.
+ *
+ * Compare:
+ *   Before SEP-834: { "users": [{...}, {...}] }  // Forced wrapper
+ *   After SEP-834:  [{...}, {...}]               // Direct array
  *
  * @param {McpServer} server - The McpServer instance where the tool will be registered.
  */
@@ -74,10 +88,10 @@ export const registerGetArrayContentTool = (server: McpServer) => {
       text: JSON.stringify(users, null, 2),
     };
 
-    // SEP-834: structuredContent with array data
+    // SEP-834: Return the array DIRECTLY, not wrapped in { users: [...] }
     return {
       content: [backwardCompatibleContentBlock],
-      structuredContent: { users },
+      structuredContent: users as any, // SEP-834: raw array in structuredContent
     };
   });
 };
