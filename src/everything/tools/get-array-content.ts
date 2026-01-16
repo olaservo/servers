@@ -12,10 +12,11 @@ import {
  * This is the key capability enabled by SEP-834.
  *
  * Before SEP-834:
+ *   - outputSchema MUST have type: "object" at root
  *   - structuredContent MUST be an object: { users: [...] }
- *   - Forced unnecessary wrapper objects
  *
  * After SEP-834:
+ *   - outputSchema can be any JSON Schema (including type: "array")
  *   - structuredContent can be the array directly: [...]
  *   - Matches natural API response patterns (GitHub Events, AccuWeather, etc.)
  */
@@ -27,6 +28,13 @@ const USERS = [
   { id: "u3", name: "Charlie", email: "charlie@example.com" },
 ];
 
+// User schema for array items
+const UserSchema = z.object({
+  id: z.string().describe("User ID"),
+  name: z.string().describe("User's full name"),
+  email: z.string().describe("User's email address"),
+});
+
 // Tool input schema
 const GetArrayContentInputSchema = {
   limit: z
@@ -37,40 +45,27 @@ const GetArrayContentInputSchema = {
     .describe("Maximum number of users to return"),
 };
 
-// SEP-834: Raw JSON Schema with array at root level (not wrapped in object)
-// This is what SEP-834 enables - outputSchema can be any valid JSON Schema
-const GetArrayContentOutputSchema = {
-  type: "array",
-  description: "Array of user objects returned directly (not wrapped)",
-  items: {
-    type: "object",
-    properties: {
-      id: { type: "string", description: "User ID" },
-      name: { type: "string", description: "User's full name" },
-      email: { type: "string", description: "User's email address" },
-    },
-    required: ["id", "name", "email"],
-  },
-};
+// SEP-834: Array schema at root level (not wrapped in object)
+const GetArrayContentOutputSchema = z
+  .array(UserSchema)
+  .describe("Array of user objects returned directly");
 
 // Tool configuration
-// NOTE: The `as any` casts are required because the current SDK enforces object-only types.
-// SEP-834 proposes loosening these restrictions. With the modified SDK (branch sep-834-v1x),
-// these casts would not be needed.
 const name = "get-array-content";
 const config = {
   title: "Get Array Content Tool (SEP-834)",
   description:
-    "Returns a RAW ARRAY of users directly in structuredContent (not wrapped in an object). This demonstrates the key SEP-834 capability.",
+    "Returns a RAW ARRAY of users directly in structuredContent. Demonstrates SEP-834 array output support.",
   inputSchema: GetArrayContentInputSchema,
-  outputSchema: GetArrayContentOutputSchema as any, // SEP-834: array schema at root
+  outputSchema: GetArrayContentOutputSchema,
 };
 
 /**
  * Registers the 'get-array-content' tool.
  *
- * This tool demonstrates SEP-834's core value proposition: returning arrays
- * directly without unnecessary object wrappers.
+ * SEP-834 enables:
+ *   - outputSchema with type: "array" at root
+ *   - structuredContent containing raw arrays
  *
  * Compare:
  *   Before SEP-834: { "users": [{...}, {...}] }  // Forced wrapper
@@ -91,7 +86,7 @@ export const registerGetArrayContentTool = (server: McpServer) => {
     // SEP-834: Return the array DIRECTLY, not wrapped in { users: [...] }
     return {
       content: [backwardCompatibleContentBlock],
-      structuredContent: users as any, // SEP-834: raw array in structuredContent
+      structuredContent: users,
     };
   });
 };

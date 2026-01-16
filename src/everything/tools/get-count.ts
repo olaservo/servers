@@ -12,10 +12,11 @@ import {
  * This shows SEP-834's support for primitive values.
  *
  * Before SEP-834:
+ *   - outputSchema MUST have type: "object" at root
  *   - structuredContent MUST be an object: { count: 42 }
- *   - Even simple values needed object wrappers
  *
  * After SEP-834:
+ *   - outputSchema can be any JSON Schema (including type: "integer")
  *   - structuredContent can be the number directly: 42
  *   - Clean, simple responses for simple data
  */
@@ -35,31 +36,29 @@ const GetCountInputSchema = {
     .describe("Which collection to count"),
 };
 
-// SEP-834: Raw JSON Schema with number at root level
-// The output is just a number, not wrapped in an object
-const GetCountOutputSchema = {
-  type: "integer",
-  description: "The count of items in the collection (returned as raw number)",
-  minimum: 0,
-};
+// SEP-834: Primitive schema at root level (not wrapped in object)
+const GetCountOutputSchema = z
+  .number()
+  .int()
+  .min(0)
+  .describe("The count of items in the collection");
 
 // Tool configuration
-// NOTE: The `as any` casts are required because the current SDK enforces object-only types.
-// SEP-834 proposes loosening these restrictions. With the modified SDK (branch sep-834-v1x),
-// these casts would not be needed.
 const name = "get-count";
 const config = {
   title: "Get Count Tool (SEP-834)",
   description:
-    "Returns a RAW NUMBER count directly in structuredContent (not wrapped in an object). Demonstrates SEP-834 primitive output support.",
+    "Returns a RAW NUMBER count directly in structuredContent. Demonstrates SEP-834 primitive output support.",
   inputSchema: GetCountInputSchema,
-  outputSchema: GetCountOutputSchema as any, // SEP-834: primitive schema at root
+  outputSchema: GetCountOutputSchema,
 };
 
 /**
  * Registers the 'get-count' tool.
  *
- * This tool demonstrates SEP-834's support for primitive output values.
+ * SEP-834 enables:
+ *   - outputSchema with type: "integer" at root
+ *   - structuredContent containing raw primitives
  *
  * Compare:
  *   Before SEP-834: { "count": 42 }  // Forced wrapper
@@ -80,7 +79,7 @@ export const registerGetCountTool = (server: McpServer) => {
     // SEP-834: Return the number DIRECTLY, not wrapped in { count: ... }
     return {
       content: [backwardCompatibleContentBlock],
-      structuredContent: count as any, // SEP-834: raw primitive in structuredContent
+      structuredContent: count,
     };
   });
 };
