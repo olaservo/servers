@@ -28,7 +28,7 @@
     "prettier:check": "prettier --check ."
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "npm:@olaservo/mcp-sdk@1.25.2-sep834.3",
+    "@modelcontextprotocol/sdk": "npm:@olaservo/mcp-sdk@1.25.2-sep834.4",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "jszip": "^3.10.1",
