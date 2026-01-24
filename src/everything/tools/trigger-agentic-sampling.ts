@@ -63,6 +63,12 @@ const AVAILABLE_TOOL_DEFINITIONS: Record<string, Tool> = {
       },
       required: ["message"],
     },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
   },
   add: {
     name: "add",
@@ -74,6 +80,12 @@ const AVAILABLE_TOOL_DEFINITIONS: Record<string, Tool> = {
         b: { type: "number", description: "Second number" },
       },
       required: ["a", "b"],
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
   },
 };
