@@ -15,6 +15,9 @@ import { registerTriggerElicitationRequestTool } from "./trigger-elicitation-req
 import { registerTriggerLongRunningOperationTool } from "./trigger-long-running-operation.js";
 import { registerTriggerSamplingRequestTool } from "./trigger-sampling-request.js";
 import { registerTriggerAgenticSamplingTool } from "./trigger-agentic-sampling.js";
+import { registerTriggerSamplingRequestAsyncTool } from "./trigger-sampling-request-async.js";
+import { registerTriggerElicitationRequestAsyncTool } from "./trigger-elicitation-request-async.js";
+import { registerSimulateResearchQueryTool } from "./simulate-research-query.js";
 
 /**
  * Register the tools with the MCP server.
@@ -44,4 +47,9 @@ export const registerConditionalTools = (server: McpServer) => {
   registerTriggerElicitationRequestTool(server);
   registerTriggerSamplingRequestTool(server);
   registerTriggerAgenticSamplingTool(server);
+  // Task-based research tool (uses experimental tasks API)
+  registerSimulateResearchQueryTool(server);
+  // Bidirectional task tools - server sends requests that client executes as tasks
+  registerTriggerSamplingRequestAsyncTool(server);
+  registerTriggerElicitationRequestAsyncTool(server);
 };
