@@ -234,10 +234,11 @@ export const registerTriggerAgenticSamplingTool = (server: McpServer) => {
           break;
         }
 
-        // Add assistant message with tool_use to history
+        // Add assistant message with full content to history
+        // Preserves any reasoning text alongside tool_use blocks for better context
         messages.push({
           role: "assistant",
-          content: toolUseBlocks,
+          content: content,
         });
 
         // Execute each tool and collect results
