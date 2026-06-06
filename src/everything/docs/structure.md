@@ -182,4 +182,4 @@ src/everything
   - Handles `SIGINT` to close cleanly and calls `cleanup()` to remove any live intervals.
 - `streamableHttp.ts`
   - Express server exposing a single `/mcp` endpoint for POST (JSON‑RPC), GET (SSE stream), and DELETE (session termination) using the 2.0 SDK's `WebStandardStreamableHTTPServerTransport`.
-  - Bridges Express requests/responses to the transport's Web Standard `Request`/`Response` `handleRequest` API; the transport manages sessions internally.
+  - Bridges Express requests/responses to the transport's Web Standard `Request`/`Response` `handleRequest` API. Runs in stateless mode (`sessionIdGenerator: undefined`, no `Mcp-Session-Id`), aligning with SEP-2575 (Make MCP Stateless) and SEP-2567 (Sessionless MCP).

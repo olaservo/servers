@@ -1,7 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/server";
 import express, { Request as ExpressRequest, Response as ExpressResponse } from "express";
 import { createServer } from "../server/index.js";
-import { randomUUID } from "node:crypto";
 import cors from "cors";
 
 console.error("Starting Streamable HTTP server...");
@@ -18,11 +17,13 @@ app.use(
   })
 );
 
-// The 2.0 SDK ships a single Web Standard transport that manages sessions
-// internally, so one server + transport pair handles every client.
+// Run the transport in stateless mode (no Mcp-Session-Id), aligning with the
+// direction of SEP-2575 (Make MCP Stateless) and SEP-2567 (Sessionless MCP):
+// every request is self-contained, so a single server + transport handles all
+// clients without session tracking.
 const { server, cleanup } = createServer();
 const transport = new WebStandardStreamableHTTPServerTransport({
-  sessionIdGenerator: () => randomUUID(),
+  sessionIdGenerator: undefined,
 });
 await server.connect(transport);
 
