@@ -37,9 +37,10 @@ demo://fs/                     (inode/directory)
   no pagination, no per-entry metadata beyond `uri`/`mimeType`, and
   sub-directories become placeholders.
 - **C — single-RPC listing** (Sam) — `resources/read` on a directory returns a
-  `Resource[]` listing in one call (enable with `READ_DIRECTORY_MODE=listing`).
-  Full metadata and one round trip, but no pagination and the read result becomes
-  polymorphic (content for a file, listing for a directory).
+  `Resource[]` listing in one call. Full metadata and one round trip, but no
+  pagination and the read result becomes polymorphic (content for a file, listing
+  for a directory). Over HTTP this is the `/mcp/listing` endpoint; for stdio set
+  `READ_DIRECTORY_MODE=listing`.
 - **B — proposed method** (Peter, [`resources/proposed.ts`](resources/proposed.ts)) —
   `resources/directory/read` returns the children as a paginated `Resource[]`
   with `name`, `title`, `size`, and `digest`, and no content. Directories are
@@ -58,16 +59,24 @@ dependency; re-vendor with `npm run vendor:sdk`.
 ```bash
 npm install
 npm run build
-npm test            # both listing paths over an in-memory client/server
+npm test            # all listing paths over an in-memory client/server
 npm run compare     # prints the measured comparison
 npm run start:stdio
-npm run start:streamableHttp   # http://localhost:7860/mcp
+npm run start:streamableHttp   # see endpoints below
 ```
+
+Over HTTP all three approaches are live at once:
+
+- `POST /mcp` — A (read a directory returns `ResourceContents[]`) + B
+- `POST /mcp/listing` — C (read a directory returns `Resource[]`) + B
+- `GET /` — health check and endpoint directory
+
+(`resources/directory/read`, B, is available on both.)
 
 ## Deploy (Hugging Face Docker Space)
 
 The front-matter configures a Docker Space on port 7860. Push this directory
 (including `vendor/`) to a Space; the [`Dockerfile`](Dockerfile) builds a
-self-contained image serving `POST /mcp` and a `GET /` health check. For a public
+self-contained image serving the endpoints above. For a public
 Space, set `ALLOWED_HOSTS` (e.g. `olaservo-mcp-list-resources-demo.hf.space`) to
 enable DNS-rebinding protection.

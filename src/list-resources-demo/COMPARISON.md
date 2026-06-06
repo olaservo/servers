@@ -71,8 +71,9 @@ Two findings:
 - **Templates** — leaning toward removal; omitted from this minimal demo.
 - **Skills index / frontmatter** — out of scope; decoupled as a file in the SEP.
 
-Toggle C with the `READ_DIRECTORY_MODE=listing` env var (or
-`createServer({ readDirectoryReturnsListing: true })`); `npm run compare` shows
-all three.
+All three are reachable on the running HTTP server at once: A+B at `POST /mcp`,
+C+B at `POST /mcp/listing` (A and C cannot share one endpoint because both define
+`resources/read` on a directory). For stdio, select C with
+`READ_DIRECTORY_MODE=listing`. `npm run compare` reports all three.
 
 [2859]: https://github.com/modelcontextprotocol/modelcontextprotocol/discussions/2859
