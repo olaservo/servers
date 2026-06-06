@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
+import { CallToolResult } from "@modelcontextprotocol/server";
 import {
   beginSimulatedLogging,
   stopSimulatedLogging,
@@ -10,7 +11,7 @@ const name = "toggle-simulated-logging";
 const config = {
   title: "Toggle Simulated Logging",
   description: "Toggles simulated, random-leveled logging on or off.",
-  inputSchema: {},
+  inputSchema: z.object({}),
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,
@@ -38,8 +39,8 @@ export const registerToggleSimulatedLoggingTool = (server: McpServer) => {
   server.registerTool(
     name,
     config,
-    async (_args, extra): Promise<CallToolResult> => {
-      const sessionId = extra?.sessionId;
+    async (_args, ctx): Promise<CallToolResult> => {
+      const sessionId = ctx?.sessionId;
 
       let response: string;
       if (clients.has(sessionId)) {

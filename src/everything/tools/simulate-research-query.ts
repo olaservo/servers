@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import {
   CallToolResult,
   GetTaskResult,
   Task,
   ElicitResult,
-  ElicitResultSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { CreateTaskResult } from "@modelcontextprotocol/sdk/experimental/tasks";
+} from "@modelcontextprotocol/server";
+import { CreateTaskResult } from "@modelcontextprotocol/server";
 
 // Tool input schema
 const SimulateResearchQuerySchema = z.object({
@@ -68,8 +67,10 @@ async function runResearchProcess(
       result: CallToolResult
     ) => Promise<void>;
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sendRequest: any
+  elicit: (params: {
+    message: string;
+    requestedSchema: Record<string, unknown>;
+  }) => Promise<ElicitResult>
 ): Promise<void> {
   const state = researchStates.get(taskId);
   if (!state) return;
@@ -95,10 +96,8 @@ async function runResearchProcess(
 
       try {
         // Try elicitation via sendRequest (works on STDIO, fails on HTTP)
-        const elicitResult: ElicitResult = await sendRequest(
+        const elicitResult: ElicitResult = await elicit(
           {
-            method: "elicitation/create",
-            params: {
               message: `The research query "${state.topic}" could have multiple interpretations. Please clarify what you're looking for:`,
               requestedSchema: {
                 type: "object",
@@ -113,9 +112,7 @@ async function runResearchProcess(
                 },
                 required: ["interpretation"],
               },
-            },
-          },
-          ElicitResultSchema
+          }
         );
 
         // Process elicitation response
@@ -266,11 +263,11 @@ export const registerSimulateResearchQueryTool = (server: McpServer) => {
       /**
        * Creates a new research task and starts background processing.
        */
-      createTask: async (args, extra): Promise<CreateTaskResult> => {
+      createTask: async (args, ctx): Promise<CreateTaskResult> => {
         const validatedArgs = SimulateResearchQuerySchema.parse(args);
 
         // Create the task in the store
-        const task = await extra.taskStore.createTask({
+        const task = await ctx.task.store.createTask({
           ttl: 300000, // 5 minutes
           pollInterval: 1000,
         });
@@ -289,11 +286,11 @@ export const registerSimulateResearchQueryTool = (server: McpServer) => {
         runResearchProcess(
           task.taskId,
           validatedArgs,
-          extra.taskStore,
-          extra.sendRequest
+          ctx.task.store as any,
+          (params) => server.server.elicitInput(params as any)
         ).catch((error) => {
           console.error(`Research task ${task.taskId} failed:`, error);
-          extra.taskStore
+          ctx.task.store
             .updateTaskStatus(task.taskId, "failed", String(error))
             .catch(console.error);
         });
@@ -304,20 +301,20 @@ export const registerSimulateResearchQueryTool = (server: McpServer) => {
       /**
        * Returns the current status of the research task.
        */
-      getTask: async (args, extra): Promise<GetTaskResult> => {
-        return await extra.taskStore.getTask(extra.taskId);
+      getTask: async (args, ctx): Promise<GetTaskResult> => {
+        return await ctx.task.store.getTask(ctx.task.id);
       },
 
       /**
        * Returns the task result.
        * Elicitation is now handled directly in the background process.
        */
-      getTaskResult: async (args, extra): Promise<CallToolResult> => {
+      getTaskResult: async (args, ctx): Promise<CallToolResult> => {
         // Return the stored result
-        const result = await extra.taskStore.getTaskResult(extra.taskId);
+        const result = await ctx.task.store.getTaskResult(ctx.task.id);
 
         // Clean up state
-        researchStates.delete(extra.taskId);
+        researchStates.delete(ctx.task.id);
 
         return result as CallToolResult;
       },

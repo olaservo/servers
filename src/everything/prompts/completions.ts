@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { completable } from "@modelcontextprotocol/server";
 
 /**
  * Register a prompt with completable arguments
@@ -12,7 +12,7 @@ import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
  */
 export const registerPromptWithCompletions = (server: McpServer) => {
   // Prompt arguments
-  const promptArgsSchema = {
+  const promptArgsSchema = z.object({
     department: completable(
       z.string().describe("Choose the department."),
       (value) => {
@@ -39,7 +39,7 @@ export const registerPromptWithCompletions = (server: McpServer) => {
         return [];
       }
     ),
-  };
+  });
 
   // Register the prompt
   server.registerPrompt(

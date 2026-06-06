@@ -1,8 +1,8 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import {
   CallToolResult,
   CreateMessageRequest,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 // Tool input schema
@@ -66,7 +66,7 @@ export const registerTriggerSamplingRequestAsyncTool = (server: McpServer) => {
     server.registerTool(
       name,
       config,
-      async (args, extra): Promise<CallToolResult> => {
+      async (args, ctx): Promise<CallToolResult> => {
         const validatedArgs = TriggerSamplingRequestAsyncSchema.parse(args);
         const { prompt, maxTokens } = validatedArgs;
 
@@ -99,27 +99,7 @@ export const registerTriggerSamplingRequestAsyncTool = (server: McpServer) => {
         // Client may return either:
         // - CreateMessageResult (synchronous execution)
         // - CreateTaskResult (task-based execution with { task } object)
-        const samplingResponse = await extra.sendRequest(
-          request,
-          z.union([
-            // CreateTaskResult - client created a task
-            z.object({
-              task: z.object({
-                taskId: z.string(),
-                status: z.string(),
-                pollInterval: z.number().optional(),
-                statusMessage: z.string().optional(),
-              }),
-            }),
-            // CreateMessageResult - synchronous execution
-            z.object({
-              role: z.string(),
-              content: z.any(),
-              model: z.string(),
-              stopReason: z.string().optional(),
-            }),
-          ])
-        );
+        const samplingResponse: any = await ctx.mcpReq.send(request as any);
 
         // Check if client returned CreateTaskResult (has task object)
         const isTaskResult =
@@ -160,16 +140,10 @@ export const registerTriggerSamplingRequestAsyncTool = (server: McpServer) => {
           attempts++;
 
           // Get task status from client
-          const pollResult = await extra.sendRequest(
-            {
-              method: "tasks/get",
-              params: { taskId },
-            },
-            z.looseObject({
-              status: z.string(),
-              statusMessage: z.string().optional(),
-            })
-          );
+          const pollResult: any = await (ctx.mcpReq.send as any)({
+            method: "tasks/get",
+            params: { taskId },
+          });
 
           taskStatus = pollResult.status;
           taskStatusMessage = pollResult.statusMessage;
@@ -209,13 +183,10 @@ export const registerTriggerSamplingRequestAsyncTool = (server: McpServer) => {
         }
 
         // Fetch the final result
-        const result = await extra.sendRequest(
-          {
-            method: "tasks/result",
-            params: { taskId },
-          },
-          z.any()
-        );
+        const result: any = await (ctx.mcpReq.send as any)({
+          method: "tasks/result",
+          params: { taskId },
+        });
 
         // Return the result with status history
         return {

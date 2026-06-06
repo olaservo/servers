@@ -1,15 +1,13 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  ElicitResultSchema,
-  CallToolResult,
-} from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { CallToolResult } from "@modelcontextprotocol/server";
+import { z } from "zod";
 
 // Tool configuration
 const name = "trigger-elicitation-request";
 const config = {
   title: "Trigger Elicitation Request Tool",
   description: "Trigger a Request from the Server for User Elicitation",
-  inputSchema: {},
+  inputSchema: z.object({}),
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,
@@ -47,11 +45,9 @@ export const registerTriggerElicitationRequestTool = (server: McpServer) => {
     server.registerTool(
       name,
       config,
-      async (args, extra): Promise<CallToolResult> => {
-        const elicitationResult = await extra.sendRequest(
+      async (args, ctx): Promise<CallToolResult> => {
+        const elicitationResult = await ctx.mcpReq.elicitInput(
           {
-            method: "elicitation/create",
-            params: {
               message: "Please provide inputs for the following fields:",
               requestedSchema: {
                 type: "object",
@@ -172,8 +168,6 @@ export const registerTriggerElicitationRequestTool = (server: McpServer) => {
                 required: ["name"],
               },
             },
-          },
-          ElicitResultSchema,
           { timeout: 10 * 60 * 1000 /* 10 minutes */ }
         );
 

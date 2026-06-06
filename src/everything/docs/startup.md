@@ -9,11 +9,10 @@
 
 ## 1. Everything Server Launcher
 
-- Usage `node dist/index.js [stdio|sse|streamableHttp]`
+- Usage `node dist/index.js [stdio|streamableHttp]`
 - Runs the specified **transport manager** to handle client connections.
 - Specify transport type on command line (default `stdio`)
   - `stdio` → `transports/stdio.js`
-  - `sse` → `transports/sse.js`
   - `streamableHttp` → `transports/streamableHttp.js`
 
 ## 2. The Transport Manager
@@ -25,14 +24,6 @@
     - One simple, process‑bound connection.
     - Calls`clientConnect()` upon connection.
     - Closes and calls `cleanup()` on `SIGINT`.
-  - **SSE**:
-    - Supports multiple client connections.
-    - Client transports are mapped to `sessionId`;
-    - Calls `clientConnect(sessionId)` upon connection.
-    - Hooks server’s `onclose` to clean and remove session.
-    - Exposes
-      - `/sse` **GET** (SSE stream)
-      - `/message` **POST** (JSON‑RPC messages)
   - **Streamable HTTP**:
     - Supports multiple client connections.
     - Client transports are mapped to `sessionId`;

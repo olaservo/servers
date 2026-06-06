@@ -1,8 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  Root,
-  RootsListChangedNotificationSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { Root } from "@modelcontextprotocol/server";
 
 // Track roots by session id
 export const roots: Map<string | undefined, Root[]> = new Map<
@@ -76,7 +73,7 @@ export const syncRoots = async (server: McpServer, sessionId?: string) => {
     if (!roots.has(sessionId)) {
       // Set the list changed notification handler
       server.server.setNotificationHandler(
-        RootsListChangedNotificationSchema,
+        "notifications/roots/list_changed",
         requestRoots
       );
 

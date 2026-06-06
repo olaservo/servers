@@ -1,5 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 // Tool configuration
@@ -10,7 +10,7 @@ const config = {
     "Trigger an async elicitation request that the CLIENT executes as a background task. " +
     "Demonstrates bidirectional MCP tasks where the server sends an elicitation request and " +
     "the client handles user input asynchronously, allowing the server to poll for completion.",
-  inputSchema: {},
+  inputSchema: z.object({}),
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,
@@ -58,7 +58,7 @@ export const registerTriggerElicitationRequestAsyncTool = (
     server.registerTool(
       name,
       config,
-      async (args, extra): Promise<CallToolResult> => {
+      async (args, ctx): Promise<CallToolResult> => {
         // Create the elicitation request WITH task metadata
         // Using z.any() schema to avoid complex type matching with _meta
         const request = {
@@ -98,25 +98,7 @@ export const registerTriggerElicitationRequestAsyncTool = (
         // Client may return either:
         // - ElicitResult (synchronous execution)
         // - CreateTaskResult (task-based execution with { task } object)
-        const elicitResponse = await extra.sendRequest(
-          request as Parameters<typeof extra.sendRequest>[0],
-          z.union([
-            // CreateTaskResult - client created a task
-            z.object({
-              task: z.object({
-                taskId: z.string(),
-                status: z.string(),
-                pollInterval: z.number().optional(),
-                statusMessage: z.string().optional(),
-              }),
-            }),
-            // ElicitResult - synchronous execution
-            z.object({
-              action: z.string(),
-              content: z.any().optional(),
-            }),
-          ])
-        );
+        const elicitResponse: any = await ctx.mcpReq.send(request as any);
 
         // Check if client returned CreateTaskResult (has task object)
         const isTaskResult = "task" in elicitResponse && elicitResponse.task;
@@ -156,16 +138,10 @@ export const registerTriggerElicitationRequestAsyncTool = (
           attempts++;
 
           // Get task status from client
-          const pollResult = await extra.sendRequest(
-            {
-              method: "tasks/get",
-              params: { taskId },
-            },
-            z.looseObject({
-              status: z.string(),
-              statusMessage: z.string().optional(),
-            })
-          );
+          const pollResult: any = await (ctx.mcpReq.send as any)({
+            method: "tasks/get",
+            params: { taskId },
+          });
 
           taskStatus = pollResult.status;
           taskStatusMessage = pollResult.statusMessage;
@@ -213,13 +189,10 @@ export const registerTriggerElicitationRequestAsyncTool = (
         }
 
         // Fetch the final result
-        const result = await extra.sendRequest(
-          {
-            method: "tasks/result",
-            params: { taskId },
-          },
-          z.any()
-        );
+        const result: any = await (ctx.mcpReq.send as any)({
+          method: "tasks/result",
+          params: { taskId },
+        });
 
         // Format the elicitation result
         const content: CallToolResult["content"] = [];

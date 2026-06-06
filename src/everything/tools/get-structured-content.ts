@@ -1,16 +1,16 @@
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import {
   CallToolResult,
   ContentBlock,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/server";
 
 // Tool input schema
-const GetStructuredContentInputSchema = {
+const GetStructuredContentInputSchema = z.object({
   location: z
     .enum(["New York", "Chicago", "Los Angeles"])
     .describe("Choose city"),
-};
+});
 
 // Tool output schema
 const GetStructuredContentOutputSchema = z.object({

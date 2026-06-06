@@ -12,10 +12,6 @@ async function run() {
         // Import and run the default server
         await import("./transports/stdio.js");
         break;
-      case "sse":
-        // Import and run the SSE server
-        await import("./transports/sse.js");
-        break;
       case "streamableHttp":
         // Import and run the streamable HTTP server
         await import("./transports/streamableHttp.js");
@@ -23,13 +19,12 @@ async function run() {
       default:
         console.error(`-`.repeat(53));
         console.error(`  Everything Server Launcher`);
-        console.error(`  Usage: node ./index.js [stdio|sse|streamableHttp]`);
+        console.error(`  Usage: node ./index.js [stdio|streamableHttp]`);
         console.error(`  Default transport: stdio`);
         console.error(`-`.repeat(53));
         console.error(`Unknown transport: ${scriptName}`);
         console.log("Available transports:");
         console.log("- stdio");
-        console.log("- sse");
         console.log("- streamableHttp");
         process.exit(1);
     }

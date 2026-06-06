@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/server';
 
 // Create mock server
 function createMockServer() {
@@ -24,8 +24,8 @@ describe('Registration Index Files', () => {
 
       registerTools(mockServer);
 
-      // Should register 12 standard tools (non-conditional)
-      expect(mockServer.registerTool).toHaveBeenCalledTimes(12);
+      // Should register 13 standard tools (non-conditional)
+      expect(mockServer.registerTool).toHaveBeenCalledTimes(13);
 
       // Verify specific tools are registered
       const registeredTools = (mockServer.registerTool as any).mock.calls.map(
@@ -34,6 +34,7 @@ describe('Registration Index Files', () => {
       expect(registeredTools).toContain('echo');
       expect(registeredTools).toContain('get-sum');
       expect(registeredTools).toContain('get-env');
+      expect(registeredTools).toContain('get-enum-selections');
       expect(registeredTools).toContain('get-tiny-image');
       expect(registeredTools).toContain('get-structured-content');
       expect(registeredTools).toContain('get-annotated-message');

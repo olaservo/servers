@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { CallToolResult } from "@modelcontextprotocol/server";
+import { z } from "zod";
 
 // Tool configuration
 const name = "get-env";
@@ -7,7 +8,7 @@ const config = {
   title: "Print Environment Tool",
   description:
     "Returns all environment variables, helpful for debugging MCP server configuration",
-  inputSchema: {},
+  inputSchema: z.object({}),
   annotations: {
     readOnlyHint: true,
     destructiveHint: false,

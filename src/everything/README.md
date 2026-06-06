@@ -93,14 +93,6 @@ On Windows, use:
 }
 ```
 
-## Running from source with [HTTP+SSE Transport](https://modelcontextprotocol.io/specification/2024-11-05/basic/transports#http-with-sse) (deprecated as of [2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports))
-
-```shell
-cd src/everything
-npm install
-npm run start:sse
-```
-
 ## Run from source with [Streamable HTTP Transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)
 
 ```shell
@@ -123,11 +115,6 @@ npx @modelcontextprotocol/server-everything
 ### Or specify stdio explicitly
 ```shell
 npx @modelcontextprotocol/server-everything stdio
-```
-
-### Run the SSE server
-```shell
-npx @modelcontextprotocol/server-everything sse
 ```
 
 ### Run the streamable HTTP server

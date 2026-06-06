@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
+import { CallToolResult } from "@modelcontextprotocol/server";
 
 // A tiny encoded MCP logo image
 export const MCP_TINY_IMAGE =
@@ -10,7 +11,7 @@ const name = "get-tiny-image";
 const config = {
   title: "Get Tiny Image Tool",
   description: "Returns a tiny MCP logo image.",
-  inputSchema: {},
+  inputSchema: z.object({}),
   annotations: {
     readOnlyHint: true,
     destructiveHint: false,

@@ -58,7 +58,6 @@ src/everything
      │   ├── trigger-sampling-request-async.ts
      │   └── trigger-url-elicitation.ts
      └── transports
-         ├── sse.ts
          ├── stdio.ts
          └── streamableHttp.ts
 ```
@@ -69,7 +68,7 @@ src/everything
 
 ### `index.ts`
 
-- CLI entry point that selects and runs a specific transport module based on the first CLI argument: `stdio`, `sse`, or `streamableHttp`.
+- CLI entry point that selects and runs a specific transport module based on the first CLI argument: `stdio` or `streamableHttp`.
 
 ### `AGENTS.md`
 
@@ -79,8 +78,8 @@ src/everything
 
 - Package metadata and scripts:
   - `build`: TypeScript compile to `dist/`, copies `docs/` into `dist/` and marks the compiled entry scripts as executable.
-  - `start:stdio`, `start:sse`, `start:streamableHttp`: Run built transports from `dist/`.
-- Declares dependencies on `@modelcontextprotocol/sdk`, `express`, `cors`, `zod`, etc.
+  - `start:stdio`, `start:streamableHttp`: Run built transports from `dist/`.
+- Declares dependencies on `@modelcontextprotocol/server`, `@cfworker/json-schema`, `express`, `cors`, `zod`, etc.
 
 ### `docs/`
 
@@ -181,14 +180,6 @@ src/everything
 - `stdio.ts`
   - Starts a `StdioServerTransport`, created the server via `createServer()`, and connects it.
   - Handles `SIGINT` to close cleanly and calls `cleanup()` to remove any live intervals.
-- `sse.ts`
-  - Express server exposing:
-    - `GET /sse` to establish an SSE connection per session.
-    - `POST /message` for client messages.
-  - Manages multiple connected clients via a transport map.
-  - Starts an `SSEServerTransport`, created the server via `createServer()`, and connects it to a new transport.
-  - On server disconnect, calls `cleanup()` to remove any live intervals.
 - `streamableHttp.ts`
-  - Express server exposing a single `/mcp` endpoint for POST (JSON‑RPC), GET (SSE stream), and DELETE (session termination) using `StreamableHTTPServerTransport`.
-  - Uses an `InMemoryEventStore` for resumable sessions and tracks transports by `sessionId`.
-  - Connects a fresh server instance on initialization POST and reuses the transport for subsequent requests.
+  - Express server exposing a single `/mcp` endpoint for POST (JSON‑RPC), GET (SSE stream), and DELETE (session termination) using the 2.0 SDK's `WebStandardStreamableHTTPServerTransport`.
+  - Bridges Express requests/responses to the transport's Web Standard `Request`/`Response` `handleRequest` API; the transport manages sessions internally.

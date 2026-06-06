@@ -11,6 +11,7 @@
 
 - `echo` (tools/echo.ts): Echoes the provided `message: string`. Uses Zod to validate inputs.
 - `get-annotated-message` (tools/get-annotated-message.ts): Returns a `text` message annotated with `priority` and `audience` based on `messageType` (`error`, `success`, or `debug`); can optionally include an annotated `image`.
+- `get-enum-selections` (tools/get-enum-selections.ts): Demonstrates the SEP-1330 enum schema varieties (untitled/titled single- and multi-select via `enum`/`oneOf`/`anyOf`/`const`+`title`, plus the legacy `enumNames` form) as a tool `inputSchema` -- now expressible thanks to SEP-2106 (JSON Schema 2020-12). Built with the 2.0 SDK's `fromJsonSchema` adapter so the raw schema is both advertised and strictly validated. Echoes back the selected values.
 - `get-env` (tools/get-env.ts): Returns all environment variables from the running process as pretty-printed JSON text.
 - `get-resource-links` (tools/get-resource-links.ts): Returns an intro `text` block followed by multiple `resource_link` items. For a requested `count` (1–10), alternates between dynamic Text and Blob resources using URIs from `resources/templates.ts`.
 - `get-resource-reference` (tools/get-resource-reference.ts): Accepts `resourceType` (`text` or `blob`) and `resourceId` (positive integer). Returns a concrete `resource` content block (with its `uri`, `mimeType`, and data) with surrounding explanatory `text`.

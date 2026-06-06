@@ -1,8 +1,8 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import {
   InMemoryTaskStore,
   InMemoryTaskMessageQueue,
-} from "@modelcontextprotocol/sdk/experimental/tasks";
+} from "@modelcontextprotocol/server";
 import {
   setSubscriptionHandlers,
   stopSimulatedResourceUpdates,
@@ -70,11 +70,11 @@ export const createServer: () => ServerFactoryResponse = () => {
               call: {},
             },
           },
+          taskStore,
+          taskMessageQueue,
         },
       },
       instructions,
-      taskStore,
-      taskMessageQueue,
     }
   );
 
