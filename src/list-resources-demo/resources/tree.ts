@@ -1,3 +1,4 @@
+import type { Resource } from "@modelcontextprotocol/sdk/types.js";
 import { sha256 } from "./digest.js";
 
 /**
@@ -209,3 +210,14 @@ export const digestOf = (node: ResourceNode): string => sha256(rawContent(node))
 
 /** Byte size of a node's raw content. */
 export const sizeOf = (node: ResourceNode): number => rawContent(node).byteLength;
+
+/** A node as listing metadata only (no `text`/`blob`), with size and digest. */
+export const toResourceMetadata = (node: ResourceNode): Resource => ({
+  uri: node.uri,
+  name: node.name,
+  title: node.title,
+  description: node.description,
+  mimeType: node.mimeType,
+  size: sizeOf(node),
+  digest: digestOf(node),
+});

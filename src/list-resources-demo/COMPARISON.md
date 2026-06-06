@@ -1,15 +1,20 @@
 # Comparison: listing a directory's resources
 
-This server exposes one resource tree two ways so the trade-offs can be measured
-rather than argued. It is a sandbox for the `resources/list` redesign discussed
-in the Discord thread and in [discussion #2859][2859].
+This server exposes one resource tree three ways so the trade-offs can be
+measured rather than argued. It is a sandbox for the `resources/list` redesign
+discussed in the Discord thread and in [discussion #2859][2859].
 
-- **Current** — `resources/read(dir)` returns the children embedded in a
+- **A — current** — `resources/read(dir)` returns the children embedded in a
   `ResourceContents[]` array.
-- **Proposed** — `resources/directory/read(dir)` returns the children as a
-  paginated `Resource[]` (metadata only), per Peter's 6/4 design. Backed by a
-  forked SDK that adds the request/result schemas, `digest`/`size` on `Resource`,
-  and the `inode/directory` marker.
+- **C — single-RPC listing (Sam)** — `resources/read(dir)` returns the children
+  as a `Resource[]` listing in one call. Reading a resource returns content for a
+  file and a listing for a directory.
+- **B — proposed method (Peter)** — `resources/directory/read(dir)` returns the
+  children as a paginated `Resource[]` (metadata only), per his 6/4 design.
+
+B and C are backed by a forked SDK that adds the `resources/directory/read`
+schemas, an optional `resources` field on the read result, `digest`/`size` on
+`Resource`, and the `inode/directory` marker.
 
 ## Measured
 
@@ -17,17 +22,25 @@ From `npm run compare` (page size 3):
 
 | directory | approach | round trips | list payload | content shipped to list | paginates | per-entry fields |
 |---|---|--:|--:|--:|:--:|---|
-| `demo://fs/` (5) | current | 1 | 0.85 KB | 0.50 KB | no | uri, mimeType, text |
-| `demo://fs/` (5) | proposed | 2 | 1.28 KB | 0 KB | yes | uri, name, title, description, mimeType, size, digest |
-| `demo://fs/bulk/` (8) | current | 1 | 31.9 KB | 31.4 KB | no | uri, mimeType, text |
-| `demo://fs/bulk/` (8) | proposed | 3 | 2.1 KB | 0 KB | yes | uri, name, title, description, mimeType, size, digest |
+| `demo://fs/` (5) | A current | 1 | 0.85 KB | 0.50 KB | no | uri, mimeType, text |
+| `demo://fs/` (5) | C single-RPC | 1 | 1.25 KB | 0 KB | no | uri, name, title, description, mimeType, size, digest |
+| `demo://fs/` (5) | B proposed | 2 | 1.28 KB | 0 KB | yes | uri, name, title, description, mimeType, size, digest |
+| `demo://fs/bulk/` (8) | A current | 1 | 31.9 KB | 31.3 KB | no | uri, mimeType, text |
+| `demo://fs/bulk/` (8) | C single-RPC | 1 | 2.0 KB | 0 KB | no | uri, name, title, description, mimeType, size, digest |
+| `demo://fs/bulk/` (8) | B proposed | 3 | 2.1 KB | 0 KB | yes | uri, name, title, description, mimeType, size, digest |
 
-The crossover is the point: the proposed listing has a small fixed cost per
-entry, while the current listing's cost scales with the total content under the
-directory. For a few tiny files the current approach is smaller; for real files
-it is not (15× here, unbounded as content grows). The skills use case in #2859 is
-hundreds of files, so the current approach means transferring everything to
-enumerate anything.
+Two findings:
+
+- **A vs (B/C): metadata beats embedded content for listing.** A's cost scales
+  with the total content under the directory; B and C have a small fixed cost per
+  entry. For a few tiny files A is smaller; for real files it is not (15× here,
+  unbounded as content grows). The skills use case in #2859 is hundreds of files,
+  so A means transferring everything to enumerate anything.
+- **B vs C: pagination vs round trips.** B and C return essentially the same
+  bytes and metadata. C does it in one round trip but cannot paginate (a read
+  result has no cursor) and makes a read result polymorphic (content or listing,
+  by resource type). B paginates but needs a second call per directory and a
+  dedicated method.
 
 ## Limitations of `ResourceContents[]` for listing
 
@@ -45,15 +58,21 @@ enumerate anything.
 
 ## Open design questions this can inform
 
-- **Separate method vs. single RPC.** We implemented the separate
-  `resources/directory/read`. Sam raised an alternative: reading an
-  `inode/directory` returns the listing directly (one RPC). The demo can host
-  both to compare ergonomics.
+- **Separate method (B) vs. single RPC (C).** Both are implemented here. C saves
+  a round trip and a method but cannot paginate and overloads the read result;
+  B paginates but adds a method and a call per directory. If directories can be
+  large (the skills case), pagination likely outweighs the saved round trip,
+  which favors B — unless the read result is also given a cursor, at which point
+  it has effectively absorbed B.
 - **`resources/list(uri)` vs `resources/directory/read`.** The thread moved from
   a `uri` parameter on `resources/list` to a dedicated method; both return the
   same `Resource[]` shape.
-- **`digest`** — included.
+- **`digest`** — included; enables cache/skip-unchanged on re-list.
 - **Templates** — leaning toward removal; omitted from this minimal demo.
 - **Skills index / frontmatter** — out of scope; decoupled as a file in the SEP.
+
+Toggle C with the `READ_DIRECTORY_MODE=listing` env var (or
+`createServer({ readDirectoryReturnsListing: true })`); `npm run compare` shows
+all three.
 
 [2859]: https://github.com/modelcontextprotocol/modelcontextprotocol/discussions/2859

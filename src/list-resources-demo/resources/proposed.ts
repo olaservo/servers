@@ -3,15 +3,8 @@ import {
   ErrorCode,
   McpError,
   ReadResourceDirectoryRequestSchema,
-  Resource,
 } from "@modelcontextprotocol/sdk/types.js";
-import {
-  childrenOf,
-  digestOf,
-  getNode,
-  ResourceNode,
-  sizeOf,
-} from "./tree.js";
+import { childrenOf, getNode, toResourceMetadata } from "./tree.js";
 
 /**
  * How many children to return per page. Deliberately small so pagination is
@@ -60,17 +53,6 @@ export const registerProposed = (server: McpServer): void => {
     }
   );
 };
-
-/** Metadata-only `Resource` for a child (no `text`/`blob`). */
-const toResourceMetadata = (node: ResourceNode): Resource => ({
-  uri: node.uri,
-  name: node.name,
-  title: node.title,
-  description: node.description,
-  mimeType: node.mimeType,
-  size: sizeOf(node),
-  digest: digestOf(node),
-});
 
 const encodeCursor = (offset: number): string =>
   Buffer.from(String(offset), "utf-8").toString("base64");

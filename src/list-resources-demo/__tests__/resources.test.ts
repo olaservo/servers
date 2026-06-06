@@ -9,8 +9,8 @@ import { createServer } from "../server/index.js";
 import { DIRECTORY_MIME } from "../resources/tree.js";
 
 // Wire a client to the demo server over a linked in-memory transport pair.
-async function connect() {
-  const { server } = createServer();
+async function connect(options?: { readDirectoryReturnsListing?: boolean }) {
+  const { server } = createServer(options);
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test", version: "0.0.0" });
@@ -137,6 +137,31 @@ describe("Version B — proposed: resources/directory/read -> Resource[]", () =>
 
   it("rejects reading a non-directory as a directory", async () => {
     await expect(readDir("demo://fs/readme.txt")).rejects.toThrow();
+  });
+});
+
+describe("Version C — Sam's alternative: resources/read -> Resource[] (single RPC)", () => {
+  it("returns a directory's listing in the read result, no contents", async () => {
+    const listingClient = await connect({ readDirectoryReturnsListing: true });
+    const result = await listingClient.readResource({ uri: ROOT });
+
+    // One call, a typed Resource[] listing instead of ResourceContents[].
+    expect(result.contents).toBeUndefined();
+    expect(result.resources).toBeDefined();
+    expect(result.resources).toHaveLength(5);
+    for (const r of result.resources!) {
+      expect(r.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+      expect((r as Record<string, unknown>).text).toBeUndefined();
+    }
+  });
+
+  it("still returns contents when reading a leaf (file)", async () => {
+    const listingClient = await connect({ readDirectoryReturnsListing: true });
+    const result = await listingClient.readResource({
+      uri: "demo://fs/data.json",
+    });
+    expect(result.resources).toBeUndefined();
+    expect(result.contents).toHaveLength(1);
   });
 });
 

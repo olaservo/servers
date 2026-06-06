@@ -5,20 +5,37 @@ import {
   digestOf,
   ResourceNode,
   sizeOf,
+  toResourceMetadata,
 } from "./tree.js";
 
+export interface CurrentOptions {
+  /**
+   * Sam's single-RPC alternative: when true, reading a directory returns its
+   * children as a `Resource[]` *listing* in the read result (one round trip, no
+   * separate `resources/directory/read` call). When false (default), reading a
+   * directory returns the children embedded as `ResourceContents[]`.
+   */
+  readDirectoryReturnsListing?: boolean;
+}
+
 /**
- * Version A — listing with what the spec supports today.
+ * Listing without the proposed dedicated method, two variants over `resources/read`:
  *
- * Every node (files *and* directories) is registered as an ordinary resource, so
- * they all appear in a flat `resources/list`. To list the *children* of a
- * directory there is no dedicated method today, so we overload `resources/read`:
- * reading a directory returns its children packed into the `ResourceContents[]`
- * array. The catch is visible here — `ResourceContents` is a *content* type, so
- * you must embed each child's bytes (or fabricate a placeholder for a
- * sub-directory) rather than return clean metadata.
+ *  A. default (`readDirectoryReturnsListing: false`) — the current spec: reading
+ *     a directory returns its children packed into `ResourceContents[]`. To
+ *     enumerate you must ship every child's bytes; sub-directories become
+ *     placeholders; there is no pagination and no per-entry metadata.
+ *
+ *  C. Sam's alternative (`readDirectoryReturnsListing: true`) — reading a
+ *     directory returns the children as a `Resource[]` listing (with digests) in
+ *     a single call. One round trip and real metadata, but it overloads the
+ *     meaning of a read result (content vs. listing, by resource type) and still
+ *     has no pagination, since a read result has no cursor.
  */
-export const registerCurrent = (server: McpServer): void => {
+export const registerCurrent = (
+  server: McpServer,
+  { readDirectoryReturnsListing = false }: CurrentOptions = {}
+): void => {
   for (const node of allNodes()) {
     server.registerResource(
       node.name,
@@ -30,18 +47,16 @@ export const registerCurrent = (server: McpServer): void => {
         size: sizeOf(node),
         digest: digestOf(node),
       },
-      async () => ({ contents: readAsContents(node) })
+      async () => {
+        if (node.kind !== "dir") {
+          return { contents: [toContents(node)] };
+        }
+        return readDirectoryReturnsListing
+          ? { resources: childrenOf(node.uri).map(toResourceMetadata) }
+          : { contents: childrenOf(node.uri).map(toContents) };
+      }
     );
   }
-};
-
-/** The `ResourceContents[]` a `resources/read` returns for a node. */
-const readAsContents = (node: ResourceNode) => {
-  if (node.kind !== "dir") {
-    return [toContents(node)];
-  }
-  // Current-spec directory "listing": children embedded as contents.
-  return childrenOf(node.uri).map(toContents);
 };
 
 /** Map a single node to one `ResourceContents` entry. */
