@@ -165,6 +165,19 @@ describe("Version C — Sam's alternative: resources/read -> Resource[] (single 
   });
 });
 
+describe("docs resources", () => {
+  it("serves the README as a single static resource", async () => {
+    const list = await client.listResources();
+    const readme = list.resources.find((r) => r.uri === "demo://docs/readme.md");
+    expect(readme?.mimeType).toBe("text/markdown");
+
+    const result = await client.readResource({ uri: "demo://docs/readme.md" });
+    expect(result.contents).toHaveLength(1);
+    const text = (result.contents![0] as { text?: string }).text ?? "";
+    expect(text).toContain("list-resources-demo");
+  });
+});
+
 describe("fork SDK surface", () => {
   it("exports the shared DIRECTORY_MIME_TYPE constant", () => {
     // The demo and the forked SDK agree on the directory marker.

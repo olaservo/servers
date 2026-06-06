@@ -56,6 +56,34 @@ Two findings:
 5. **Sub-directories have no content.** They can only be represented as a
    fabricated placeholder (see `demo://fs/docs/` when read as a directory).
 
+## Spec compliance
+
+Checked against the MCP schema `2025-11-25` (Resource has `uri`, `name`, `title`,
+`description?`, `mimeType?`, `annotations?`, `size?`, `_meta?`; `ReadResourceResult`
+has only `contents`; no `directory`/`inode`/`digest` anywhere).
+
+- **A (current)** is spec-compliant: `resources/read` returns
+  `(TextResourceContents | BlobResourceContents)[]`; `resources/list` returns
+  `Resource[]`, and `size` is a standard field.
+- **`digest`** is *not* in the current schema — it is the proposed addition to the
+  `Resource` type, so it appears wherever we return a `Resource` (`resources/list`
+  and B). Current-spec clients ignore the unknown field (SDK parsers strip it), so
+  it is forward-compatible.
+- **B (`resources/directory/read`)** is not in the current schema by design — it is
+  the proposal, and matches Peter's 6/4 description: a `uri` param, a paginated
+  `Resource[]` result (same shape as `resources/list`, with `nextCursor`),
+  directories marked `inode/directory`, and `digest` for caching. The method name
+  uses the convention-consistent plural `resources/…`; the thread used both
+  `resources/directory/read` and `resource/directory/read`, so the exact spelling is
+  worth confirming.
+- **C (read → listing)** is intentionally non-compliant: the current
+  `ReadResourceResult` requires `contents` and has no `resources`. The fork makes
+  `contents` optional and adds `resources`, so C needs the forked schema on both
+  ends. It is an exploration (Sam's idea), not the adopted proposal.
+- **Errors:** not-found / not-a-directory raise `InvalidParams` (-32602), matching
+  the TypeScript SDK's existing `resources/read` behavior. (The spec's
+  resource-not-found code is -32002; this discrepancy is inherited from the SDK.)
+
 ## Open design questions this can inform
 
 - **Separate method (B) vs. single RPC (C).** Both are implemented here. C saves

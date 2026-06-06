@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerCurrent } from "../resources/current.js";
 import { registerProposed } from "../resources/proposed.js";
+import { registerDocs } from "../resources/docs.js";
 
 export interface CreateServerOptions {
   /**
@@ -54,6 +55,7 @@ export const createServer = (options: CreateServerOptions = {}) => {
 
   registerCurrent(server, { readDirectoryReturnsListing });
   registerProposed(server);
+  registerDocs(server);
 
   return {
     server,

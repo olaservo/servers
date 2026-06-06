@@ -20,6 +20,8 @@ COPY package.json ./
 COPY vendor ./vendor
 RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/dist ./dist
+# Served as static resources (demo://docs/*), so they must exist at runtime.
+COPY README.md COMPARISON.md ./
 
 # Hugging Face Spaces route external traffic to this port (see README app_port).
 ENV PORT=7860
