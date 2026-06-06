@@ -32,8 +32,22 @@ const dnsRebindingOptions =
     : {};
 
 // Health check (Hugging Face pings the container; humans can sanity-check it too).
-app.get("/", (_req: Request, res: Response) => {
-  res.json({ status: "ok", server: "list-resources-demo", endpoint: "/mcp" });
+// Echoes the inbound Host/Origin headers so the correct ALLOWED_HOSTS value for a
+// deployment (e.g. a Hugging Face Space) can be discovered before enabling
+// DNS-rebinding protection.
+app.get("/", (req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    server: "list-resources-demo",
+    endpoint: "/mcp",
+    dnsRebindingProtection: allowedHosts.length > 0,
+    allowedHosts,
+    observed: {
+      host: req.headers["host"] ?? null,
+      "x-forwarded-host": req.headers["x-forwarded-host"] ?? null,
+      origin: req.headers["origin"] ?? null,
+    },
+  });
 });
 
 const transports = new Map<string, StreamableHTTPServerTransport>();
