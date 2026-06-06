@@ -17,6 +17,7 @@
     "vendor:sdk": "cd ../../../../olaservo/typescript-sdk && npm pack --ignore-scripts --pack-destination \"$INIT_CWD/vendor\"",
     "start:stdio": "node dist/index.js stdio",
     "start:streamableHttp": "node dist/index.js streamableHttp",
+    "compare": "npm run build && node scripts/compare.mjs",
     "test": "vitest run"
   },
   "dependencies": {

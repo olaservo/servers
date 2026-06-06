@@ -43,13 +43,15 @@ describe("resources/list", () => {
 });
 
 describe("Version A — current spec: resources/read -> ResourceContents[]", () => {
-  it("returns a directory's children embedded as contents", async () => {
+  it("returns a directory's children embedded as contents (no pagination)", async () => {
     const result = await client.readResource({ uri: ROOT });
-    // Root has 4 children: readme.txt, data.json, docs/, images/
-    expect(result.contents).toHaveLength(4);
+    // Root has 5 children: readme.txt, data.json, docs/, images/, bulk/
+    // resources/read returns them all in one array — there is no cursor to page.
+    expect(result.contents).toHaveLength(5);
     const uris = result.contents.map((c) => c.uri).sort();
     expect(uris).toEqual(
       [
+        "demo://fs/bulk/",
         "demo://fs/data.json",
         "demo://fs/docs/",
         "demo://fs/images/",
@@ -77,9 +79,23 @@ describe("Version B — proposed: resources/directory/read -> Resource[]", () =>
       ReadResourceDirectoryResultSchema
     );
 
+  // Walk every page, returning the accumulated resources and the page count.
+  const readDirAll = async (uri: string) => {
+    const resources = [] as Awaited<ReturnType<typeof readDir>>["resources"];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const res = await readDir(uri, cursor);
+      resources.push(...res.resources);
+      cursor = res.nextCursor;
+      pages++;
+    } while (cursor);
+    return { resources, pages };
+  };
+
   it("returns children as metadata with a digest and no contents", async () => {
-    const { resources } = await readDir(ROOT);
-    expect(resources).toHaveLength(4);
+    const { resources } = await readDirAll(ROOT);
+    expect(resources).toHaveLength(5);
     for (const r of resources) {
       expect(r.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
       expect(typeof r.size).toBe("number");
@@ -89,8 +105,19 @@ describe("Version B — proposed: resources/directory/read -> Resource[]", () =>
     }
   });
 
+  it("paginates with a cursor (page size 3)", async () => {
+    const first = await readDir("demo://fs/bulk/");
+    // 8 bulk files / page size 3 -> first page is full and has a nextCursor.
+    expect(first.resources).toHaveLength(3);
+    expect(first.nextCursor).toBeTruthy();
+
+    const all = await readDirAll("demo://fs/bulk/");
+    expect(all.resources).toHaveLength(8);
+    expect(all.pages).toBe(3); // 3 + 3 + 2
+  });
+
   it("marks nested directories with inode/directory", async () => {
-    const { resources } = await readDir(ROOT);
+    const { resources } = await readDirAll(ROOT);
     const docs = resources.find((r) => r.uri === "demo://fs/docs/");
     expect(docs?.mimeType).toBe(DIRECTORY_MIME);
   });
@@ -101,8 +128,8 @@ describe("Version B — proposed: resources/directory/read -> Resource[]", () =>
   });
 
   it("produces stable digests across calls", async () => {
-    const a = await readDir(ROOT);
-    const b = await readDir(ROOT);
+    const a = await readDirAll(ROOT);
+    const b = await readDirAll(ROOT);
     expect(a.resources.map((r) => r.digest)).toEqual(
       b.resources.map((r) => r.digest)
     );

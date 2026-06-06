@@ -13,8 +13,12 @@ import {
   sizeOf,
 } from "./tree.js";
 
-/** How many children to return per page (kept generous for the tiny demo tree). */
-const PAGE_SIZE = Number(process.env.DIRECTORY_PAGE_SIZE) || 100;
+/**
+ * How many children to return per page. Deliberately small so pagination is
+ * visible in the demo (a real server would choose a larger page size). Override
+ * with the DIRECTORY_PAGE_SIZE env var.
+ */
+const PAGE_SIZE = Number(process.env.DIRECTORY_PAGE_SIZE) || 3;
 
 /**
  * Version B — listing with the proposed `resources/directory/read` method.

@@ -60,6 +60,32 @@ const dataJson = JSON.stringify(
   2
 );
 
+// A directory of many, non-trivially-sized files. This makes the limitations of
+// the ResourceContents[] approach measurable: listing it the current way forces
+// transferring every byte below, and it has enough entries to paginate.
+const BULK_FILE_COUNT = 8;
+const paragraph =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod " +
+  "tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, " +
+  "quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo. ";
+
+const makeBulkChildren = (): ResourceNode[] =>
+  Array.from({ length: BULK_FILE_COUNT }, (_, i) => {
+    const n = i + 1;
+    // Vary the size so the listing is not uniform. Files are a few KB each, in
+    // the ballpark of real skill/reference files.
+    const text = `# chapter-${n}\n\n` + paragraph.repeat(n * 4);
+    return {
+      uri: `demo://fs/bulk/chapter-${n}.md`,
+      name: `chapter-${n}.md`,
+      title: `Chapter ${n}`,
+      mimeType: "text/markdown",
+      description: `Generated chapter ${n} (${n} paragraph(s)).`,
+      kind: "text" as const,
+      text,
+    };
+  });
+
 /** The root tree, defined inline as the single source of truth. */
 export const ROOT: ResourceNode = {
   uri: "demo://fs/",
@@ -124,6 +150,16 @@ export const ROOT: ResourceNode = {
           blob: LOGO_PNG_BASE64,
         },
       ],
+    },
+    {
+      uri: "demo://fs/bulk/",
+      name: "bulk",
+      title: "Bulk directory",
+      mimeType: DIRECTORY_MIME,
+      description:
+        "A directory of many sized files — listing it shows the payload/pagination limits.",
+      kind: "dir",
+      children: makeBulkChildren(),
     },
   ],
 };
