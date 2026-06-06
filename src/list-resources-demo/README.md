@@ -127,6 +127,17 @@ curl -s -X POST $BASE/mcp -H 'Content-Type: application/json' -H "$ACCEPT" \
 For **C**, repeat against `$BASE/mcp/listing` (a new session): the step-4
 `resources/read` returns a `Resource[]` listing instead of `ResourceContents[]`.
 
+### Automated smoke test
+
+A repeatable end-to-end check that drives a running server with the real MCP
+client (Streamable HTTP) and asserts all three approaches plus the docs
+resources — no Inspector, no manual curl. Exits non-zero on failure.
+
+```bash
+npm run smoke                                  # targets the live Space by default
+SMOKE_URL=http://localhost:7860 npm run smoke  # or a local server
+```
+
 ## Develop locally
 
 ```bash

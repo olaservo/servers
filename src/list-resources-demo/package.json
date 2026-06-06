@@ -18,6 +18,7 @@
     "start:stdio": "node dist/index.js stdio",
     "start:streamableHttp": "node dist/index.js streamableHttp",
     "compare": "npm run build && node scripts/compare.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "test": "vitest run"
   },
   "dependencies": {
