@@ -48,22 +48,26 @@ demo://fs/                     (inode/directory)
 
 ### Forked SDK
 
-The proposed pieces live in a fork of the MCP TypeScript SDK (off the `v1.x`
-line):
+The proposed pieces live in a fork of the MCP TypeScript SDK (based on `v1.29.0`),
+published to npm as [`@olaservo/mcp-sdk`](https://www.npmjs.com/package/@olaservo/mcp-sdk).
+This package depends on it via an alias, so the imports stay
+`@modelcontextprotocol/sdk/...`:
+
+```json
+"@modelcontextprotocol/sdk": "npm:@olaservo/mcp-sdk@1.29.0-directory-read.0"
+```
+
+Source and review links:
 
 - branch:
   [`olaservo/typescript-sdk` @ `feat/resources-directory-read`](https://github.com/olaservo/typescript-sdk/tree/feat/resources-directory-read)
 - the schema changes:
   [`src/types.ts`](https://github.com/olaservo/typescript-sdk/blob/feat/resources-directory-read/src/types.ts)
   — `resources/directory/read` request/result schemas, an optional `resources`
-  field on the read result (approach C), `digest`/`size` on `Resource`, and the
-  `DIRECTORY_MIME_TYPE` constant.
-- diff vs. the v1.x base:
-  [`v1.x...feat/resources-directory-read`](https://github.com/olaservo/typescript-sdk/compare/v1.x...feat/resources-directory-read)
-
-The fork is vendored under [`vendor/`](vendor) as a packed tarball and used via a
-`file:` dependency, so this package builds without a published SDK release;
-re-vendor with `npm run vendor:sdk`.
+  field on the read result (approach C), `digest` on `Resource` (and `size`, now
+  upstream-native), and the `DIRECTORY_MIME_TYPE` constant.
+- diff vs. the v1.29.0 base:
+  [`v1.29.0...feat/resources-directory-read`](https://github.com/olaservo/typescript-sdk/compare/v1.29.0...feat/resources-directory-read)
 
 ## Try it (live)
 

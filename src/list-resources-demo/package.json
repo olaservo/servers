@@ -14,7 +14,6 @@
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
     "watch": "tsc --watch",
-    "vendor:sdk": "cd ../../../../olaservo/typescript-sdk && npm pack --ignore-scripts --pack-destination \"$INIT_CWD/vendor\"",
     "start:stdio": "node dist/index.js stdio",
     "start:streamableHttp": "node dist/index.js streamableHttp",
     "compare": "npm run build && node scripts/compare.mjs",
@@ -22,7 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "file:vendor/modelcontextprotocol-sdk-1.27.0.tgz",
+    "@modelcontextprotocol/sdk": "npm:@olaservo/mcp-sdk@1.29.0-directory-read.0",
     "cors": "^2.8.5",
     "express": "^5.2.1"
   },

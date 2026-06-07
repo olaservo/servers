@@ -1,11 +1,10 @@
-# Self-contained image for the list-resources-demo MCP server.
-# The forked SDK ships as a packed tarball under ./vendor, so the build context
-# is just this package directory — ideal for a Hugging Face Docker Space.
+# Image for the list-resources-demo MCP server. The forked SDK is pulled from
+# npm (@olaservo/mcp-sdk, aliased as @modelcontextprotocol/sdk), so the build
+# context is just this package directory — ideal for a Hugging Face Docker Space.
 
 FROM node:22-slim AS build
 WORKDIR /app
 COPY package.json ./
-COPY vendor ./vendor
 RUN npm install --no-audit --no-fund
 COPY tsconfig.json index.ts ./
 COPY server ./server
@@ -17,7 +16,6 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json ./
-COPY vendor ./vendor
 RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/dist ./dist
 # Served as static resources (demo://docs/*), so they must exist at runtime.
