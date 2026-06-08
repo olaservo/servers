@@ -11,7 +11,10 @@
 // Run after building:  node scripts/compare.mjs
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { ReadResourceDirectoryResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+  ReadResourceDirectoryResultSchema,
+  DIRECTORY_MIME_TYPE,
+} from "@modelcontextprotocol/sdk/types.js";
 import { createServer } from "../dist/server/index.js";
 
 const TARGETS = ["demo://fs/", "demo://fs/bulk/"];
@@ -118,23 +121,100 @@ for (const uri of TARGETS) {
   );
 }
 
-// Digest-based caching: re-listing yields identical digests, so a client can
-// skip re-reading unchanged children entirely.
-const p1 = await clientContents.request(
-  { method: "resources/directory/read", params: { uri: "demo://fs/bulk/" } },
-  ReadResourceDirectoryResultSchema
-);
-const p2 = await clientContents.request(
-  { method: "resources/directory/read", params: { uri: "demo://fs/bulk/" } },
-  ReadResourceDirectoryResultSchema
-);
-const stable =
-  JSON.stringify(p1.resources.map((r) => r.digest)) ===
-  JSON.stringify(p2.resources.map((r) => r.digest));
-console.log(`\ndigest caching: digests stable across calls = ${stable}`);
+// ---------------------------------------------------------------------------
+// Whole-tree discovery over the nested skills tree (demo://skills/). This is the
+// metric that actually separates the approaches at scale: how much does it cost
+// to *progressively discover an entire tree*?
+const SKILLS = "demo://skills/";
+const isDir = (mimeType) => mimeType === DIRECTORY_MIME_TYPE;
+
+// A: read each directory; children come back as ResourceContents with file
+// content embedded, so discovering the tree downloads everything.
+async function discoverA(client, root) {
+  let roundTrips = 0, totalBytes = 0, dirs = 0, files = 0;
+  async function walk(uri) {
+    dirs++;
+    const res = await client.readResource({ uri });
+    roundTrips++; totalBytes += bytes(res);
+    for (const c of res.contents ?? []) {
+      if (isDir(c.mimeType)) await walk(c.uri);
+      else files++;
+    }
+  }
+  await walk(root);
+  return { roundTrips, bytes: totalBytes, dirs, files };
+}
+
+// B: resources/directory/read per directory, following pagination; metadata only.
+async function discoverB(client, root) {
+  let roundTrips = 0, totalBytes = 0, dirs = 0, files = 0;
+  async function walk(uri) {
+    dirs++;
+    const subdirs = [];
+    let cursor;
+    do {
+      const res = await client.request(
+        { method: "resources/directory/read", params: { uri, cursor } },
+        ReadResourceDirectoryResultSchema
+      );
+      roundTrips++; totalBytes += bytes(res);
+      for (const r of res.resources) {
+        if (isDir(r.mimeType)) subdirs.push(r.uri);
+        else files++;
+      }
+      cursor = res.nextCursor;
+    } while (cursor);
+    for (const d of subdirs) await walk(d);
+  }
+  await walk(root);
+  return { roundTrips, bytes: totalBytes, dirs, files };
+}
+
+// C: read each directory (single RPC, no pagination); metadata only.
+async function discoverC(client, root) {
+  let roundTrips = 0, totalBytes = 0, dirs = 0, files = 0;
+  async function walk(uri) {
+    dirs++;
+    const res = await client.readResource({ uri });
+    roundTrips++; totalBytes += bytes(res);
+    for (const r of res.resources ?? []) {
+      if (isDir(r.mimeType)) await walk(r.uri);
+      else files++;
+    }
+  }
+  await walk(root);
+  return { roundTrips, bytes: totalBytes, dirs, files };
+}
+
+// Use a realistic page size for B here (a real server would not page at 3).
+process.env.DIRECTORY_PAGE_SIZE = "100";
+const da = await discoverA(clientContents, SKILLS);
+const db = await discoverB(clientContents, SKILLS);
+const dc = await discoverC(clientListing, SKILLS);
+delete process.env.DIRECTORY_PAGE_SIZE;
+
+console.log(`\n=== whole-tree discovery of ${SKILLS} (page size 100) ===`);
+console.log(`${da.dirs} directories, ${da.files} files`);
+console.table({
+  "A. read -> ResourceContents[] (current)": { "round trips": da.roundTrips, "bytes transferred": kb(da.bytes) },
+  "C. read -> Resource[] (single RPC)": { "round trips": dc.roundTrips, "bytes transferred": kb(dc.bytes) },
+  "B. resources/directory/read (proposed)": { "round trips": db.roundTrips, "bytes transferred": kb(db.bytes) },
+});
 console.log(
-  "(with digests a client caches by content hash and re-reads only changed entries;\n" +
-    " the ResourceContents[] approach has no digest, so it re-ships all content each time.)"
+  `A's bytes INCLUDE file content: read fuses discovery + content, so one pass (${da.roundTrips} trips) gets\n` +
+    `everything. B/C transfer metadata only (~${(100 - (db.bytes / da.bytes) * 100).toFixed(0)}% fewer bytes) but must then read files\n` +
+    `separately to get content. B vs C: identical metadata; B added ${db.roundTrips - dc.roundTrips} round trip to bound the one\n` +
+    `directory larger than the page size — the case where C returns an unbounded response.`
+);
+
+// The decisive scenario for skills/progressive discovery (#2859): fetching all
+// content, cold vs. a warm restart where most content is unchanged.
+console.log(`\n=== fetch all content: cold vs. warm restart (${da.files} files) ===`);
+console.log(`A  (read fuses content):   cold ${da.roundTrips} trips / ${kb(da.bytes)}   |   warm ${da.roundTrips} trips / ${kb(da.bytes)}  (no skip signal)`);
+console.log(`B/C (metadata + reads):    cold ${dc.roundTrips}+${da.files} trips        |   warm ${dc.roundTrips} trips, 0 reads (digests unchanged)`);
+console.log(
+  `So A is cheaper when you always need all content fresh; B/C win for selective reads and for\n` +
+    `caching across restarts — ${da.files} content reads avoided warm, which is the skills startup problem in #2859.`
 );
 
 process.exit(0);

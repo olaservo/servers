@@ -29,6 +29,10 @@ demo://fs/                     (inode/directory)
     chapter-1.md … chapter-8.md text/markdown
 ```
 
+It also exposes `demo://skills/` — a nested, skills-scale tree (12 skills, ~25
+directories, ~334 files) used by `npm run compare` to measure whole-tree discovery
+and warm-restart caching, where the approaches actually diverge.
+
 ## Three approaches
 
 - **A — current** ([`resources/current.ts`](resources/current.ts)) —

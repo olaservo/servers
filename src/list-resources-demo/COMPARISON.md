@@ -42,6 +42,39 @@ Two findings:
   by resource type). B paginates but needs a second call per directory and a
   dedicated method.
 
+## Whole-tree discovery and caching (`demo://skills/`)
+
+The single-directory table above shows the shapes; the decision actually turns on
+*discovering and re-fetching a whole tree at scale*. `demo://skills/` is a nested,
+skills-like tree (12 skills, **25 directories, 334 files**, one skill with a large
+reference dir). From `npm run compare` (page size 100):
+
+| approach | round trips (discover) | bytes (discover) | notes |
+|---|--:|--:|---|
+| A `read` → contents | 25 | 186 KB | bytes **include all file content** (read fuses discovery + content) |
+| C `read` → listing | 25 | 94 KB | metadata only; one RPC per dir, unbounded responses |
+| B `directory/read` | 26 | 94 KB | metadata only; +1 trip to bound the one dir over the page size |
+
+Fetching **all** content, cold vs. a warm restart where content is unchanged:
+
+| approach | cold | warm |
+|---|---|---|
+| A | 25 trips / 186 KB | 25 trips / 186 KB (no skip signal) |
+| B/C | 25 trips + **334** content reads | 25 trips, **0** reads (digests unchanged) |
+
+Takeaways for the decision:
+
+- **The byte win depends on file size.** With large files (`bulk/`) metadata listing
+  is ~15× smaller; with many small files (`skills/`) it is ~2× — metadata has its own
+  per-entry cost. So "metadata always wins big" is too strong.
+- **A bundles content.** When you always need all content fresh, A's fused read is
+  fewer round trips. B/C win when you discover-then-fetch-selectively, or cache
+  across restarts: here **334 content reads are avoided** on a warm start — the
+  startup/rate-limit problem in #2859. A has no digest, so it can't skip.
+- **B vs C at scale:** identical metadata; B adds round trips only for directories
+  larger than the page size, which is exactly where C's unbounded single response is
+  a liability. Pagination is "free" until a directory is large, then it matters.
+
 ## Limitations of `ResourceContents[]` for listing
 
 1. **Content, not metadata.** To enumerate, the server must ship every child's

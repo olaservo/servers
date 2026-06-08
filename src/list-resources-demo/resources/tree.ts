@@ -87,6 +87,83 @@ const makeBulkChildren = (): ResourceNode[] =>
     };
   });
 
+// A nested, skills-scale tree (hundreds of files across directories) — the case
+// from discussion #2859. Used to measure whole-tree discovery and caching, where
+// the differences between the approaches actually show up. One skill has a large
+// reference directory so pagination is exercised even at a realistic page size.
+const SKILL_COUNT = 12;
+const REF_FILES = 10;
+const BIG_REF_FILES = 200;
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+const makeReference = (skillUri: string, skill: string, count: number): ResourceNode => ({
+  uri: `${skillUri}reference/`,
+  name: "reference",
+  title: `${skill} reference`,
+  mimeType: DIRECTORY_MIME,
+  description: `Reference files for ${skill} (${count} files).`,
+  kind: "dir",
+  children: Array.from({ length: count }, (_, i) => {
+    const k = i + 1;
+    return {
+      uri: `${skillUri}reference/ref-${pad2(k)}.md`,
+      name: `ref-${pad2(k)}.md`,
+      title: `${skill} reference ${k}`,
+      mimeType: "text/markdown",
+      description: `Reference ${k} for ${skill}.`,
+      kind: "text" as const,
+      text: `# ${skill} — reference ${k}\n\n` + paragraph.repeat(2),
+    };
+  }),
+});
+
+const makeSkill = (i: number): ResourceNode => {
+  const skill = `skill-${pad2(i)}`;
+  const skillUri = `demo://skills/${skill}/`;
+  const refCount = i === 1 ? BIG_REF_FILES : REF_FILES;
+  return {
+    uri: skillUri,
+    name: skill,
+    title: skill,
+    mimeType: DIRECTORY_MIME,
+    description: `Demo skill ${skill}.`,
+    kind: "dir",
+    children: [
+      {
+        uri: `${skillUri}SKILL.md`,
+        name: "SKILL.md",
+        title: `${skill} SKILL.md`,
+        mimeType: "text/markdown",
+        description: `Skill manifest for ${skill}.`,
+        kind: "text",
+        text: `---\nname: ${skill}\ndescription: Demo skill ${skill}\n---\n\n# ${skill}\n\n` + paragraph.repeat(3),
+      },
+      {
+        uri: `${skillUri}config.json`,
+        name: "config.json",
+        title: `${skill} config`,
+        mimeType: "application/json",
+        description: `Config for ${skill}.`,
+        kind: "text",
+        text: JSON.stringify({ skill, enabled: true, version: `1.${i}.0` }, null, 2),
+      },
+      makeReference(skillUri, skill, refCount),
+    ],
+  };
+};
+
+const makeSkillsTree = (): ResourceNode => ({
+  uri: "demo://skills/",
+  name: "skills",
+  title: "Skills directory",
+  mimeType: DIRECTORY_MIME,
+  description:
+    "A nested, skills-scale tree (hundreds of files) for whole-tree discovery and caching comparisons.",
+  kind: "dir",
+  children: Array.from({ length: SKILL_COUNT }, (_, i) => makeSkill(i + 1)),
+});
+
 /** The root tree, defined inline as the single source of truth. */
 export const ROOT: ResourceNode = {
   uri: "demo://fs/",
@@ -176,7 +253,11 @@ const indexNode = (node: ResourceNode): void => {
 };
 indexNode(ROOT);
 
-/** Every node in the tree (directories and leaves), depth-first. */
+/** A second, larger root: the skills-scale tree (demo://skills/). */
+export const SKILLS_ROOT: ResourceNode = makeSkillsTree();
+indexNode(SKILLS_ROOT);
+
+/** Every node across both trees (directories and leaves). */
 export const allNodes = (): ResourceNode[] => Array.from(INDEX.values());
 
 /** Look up a node by URI, tolerating a missing/extra trailing slash. */

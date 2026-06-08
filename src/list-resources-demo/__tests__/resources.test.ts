@@ -165,6 +165,28 @@ describe("Version C — Sam's alternative: resources/read -> Resource[] (single 
   });
 });
 
+describe("skills-scale tree (demo://skills/)", () => {
+  const readDir = (uri: string, cursor?: string) =>
+    client.request(
+      { method: "resources/directory/read", params: { uri, cursor } },
+      ReadResourceDirectoryResultSchema
+    );
+
+  it("exposes 12 skills, each with a nested reference directory", async () => {
+    const all = [] as Awaited<ReturnType<typeof readDir>>["resources"];
+    let cursor: string | undefined;
+    do {
+      const res = await readDir("demo://skills/", cursor);
+      all.push(...res.resources);
+      cursor = res.nextCursor;
+    } while (cursor);
+    expect(all.filter((r) => r.mimeType === DIRECTORY_MIME).length).toBe(12);
+
+    const skill1 = await readDir("demo://skills/skill-01/");
+    expect(skill1.resources.some((r) => r.uri.endsWith("/reference/"))).toBe(true);
+  });
+});
+
 describe("docs resources", () => {
   it("serves the README as a single static resource", async () => {
     const list = await client.listResources();

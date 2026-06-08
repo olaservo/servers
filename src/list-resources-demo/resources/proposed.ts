@@ -7,11 +7,12 @@ import {
 import { childrenOf, getNode, toResourceMetadata } from "./tree.js";
 
 /**
- * How many children to return per page. Deliberately small so pagination is
- * visible in the demo (a real server would choose a larger page size). Override
- * with the DIRECTORY_PAGE_SIZE env var.
+ * How many children to return per page. Read per request so it can be varied at
+ * runtime (e.g. by the compare script). Deliberately small by default so
+ * pagination is visible in the demo; a real server would choose a larger size.
+ * Override with the DIRECTORY_PAGE_SIZE env var.
  */
-const PAGE_SIZE = Number(process.env.DIRECTORY_PAGE_SIZE) || 3;
+const pageSize = (): number => Number(process.env.DIRECTORY_PAGE_SIZE) || 3;
 
 /**
  * Version B — listing with the proposed `resources/directory/read` method.
@@ -40,9 +41,10 @@ export const registerProposed = (server: McpServer): void => {
       }
 
       const children = childrenOf(uri);
+      const size = pageSize();
       const start = decodeCursor(cursor);
-      const page = children.slice(start, start + PAGE_SIZE);
-      const nextStart = start + PAGE_SIZE;
+      const page = children.slice(start, start + size);
+      const nextStart = start + size;
 
       return {
         resources: page.map(toResourceMetadata),
