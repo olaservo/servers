@@ -46,6 +46,13 @@ demo://fs/                     (inode/directory)
   with `name`, `title`, `size`, and `digest`, and no content. Directories are
   marked `inode/directory`.
 
+> **Method name (open):** the spec discussion spelled it both
+> `resources/directory/read` and `resource/directory/read`. This demo uses the
+> **plural** `resources/…`, matching every existing resource method in the spec
+> and SDK (`resources/list`, `resources/read`, `resources/templates/list`, …). The
+> exact spelling is still being confirmed; if it lands on the singular it's a
+> one-line change to the method literal.
+
 ### Forked SDK
 
 The proposed pieces live in a fork of the MCP TypeScript SDK (based on `v1.29.0`),
@@ -155,8 +162,8 @@ npm run start:streamableHttp   # serves /mcp and /mcp/listing on :7860
 
 ## Deploy (Hugging Face Docker Space)
 
-The front-matter configures a Docker Space on port 7860. Push this directory
-(including `vendor/`) to a Space; the [`Dockerfile`](Dockerfile) builds a
-self-contained image serving the endpoints above. For a public
-Space, set `ALLOWED_HOSTS` (e.g. `olaservo-mcp-list-resources-demo.hf.space`) to
-enable DNS-rebinding protection.
+The front-matter configures a Docker Space on port 7860. Push this directory to a
+Space; the [`Dockerfile`](Dockerfile) builds the image (installing the forked SDK
+from npm) and serves the endpoints above. For a public Space, set `ALLOWED_HOSTS`
+(e.g. `olaservo-mcp-list-resources-demo.hf.space`) to enable DNS-rebinding
+protection.
