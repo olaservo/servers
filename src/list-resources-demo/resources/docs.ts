@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sha256 } from "./digest.js";
 
 // Candidate package roots, covering both layouts:
 //   <root>/resources/docs.ts        (source / tests)  -> one level up
@@ -35,14 +34,6 @@ const DOCS: Doc[] = [
     file: "README.md",
     description: "This server's README, served as a single static resource.",
   },
-  {
-    uri: "demo://docs/comparison.md",
-    name: "COMPARISON.md",
-    title: "Listing approaches comparison",
-    file: "COMPARISON.md",
-    description:
-      "The analysis comparing the listing approaches, as a single static resource.",
-  },
 ];
 
 /**
@@ -65,9 +56,8 @@ export const registerDocs = (server: McpServer): void => {
         description: doc.description,
         mimeType: "text/markdown",
         size,
-        digest: sha256(text),
       },
-      async (uri) => ({
+      async (uri: URL) => ({
         contents: [{ uri: uri.toString(), mimeType: "text/markdown", text }],
       })
     );

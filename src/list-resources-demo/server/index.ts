@@ -1,66 +1,44 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerCurrent } from "../resources/current.js";
-import { registerProposed } from "../resources/proposed.js";
+import { registerSkills } from "../resources/register.js";
 import { registerDocs } from "../resources/docs.js";
-
-export interface CreateServerOptions {
-  /**
-   * Sam's single-RPC alternative: reading a directory returns a `Resource[]`
-   * listing instead of `ResourceContents[]`. Defaults to the
-   * READ_DIRECTORY_MODE env var (`listing` enables it; anything else, the
-   * current-spec `contents` behavior).
-   */
-  readDirectoryReturnsListing?: boolean;
-}
+import { SKILLS_EXTENSION } from "../resources/skills.js";
 
 /**
- * Build a minimal MCP server that exposes one resource tree three ways for
- * comparison:
- *
- *  A. {@link registerCurrent} default — `resources/read` on a directory returns
- *     children as `ResourceContents[]` (current spec).
- *  C. {@link registerCurrent} with `readDirectoryReturnsListing` — `resources/read`
- *     on a directory returns a `Resource[]` listing in one call (Sam's idea).
- *  B. {@link registerProposed} — a dedicated, paginated `resources/directory/read`
- *     returning `Resource[]` metadata with digests (Peter's proposed method).
- *
- * B is always available; A vs. C selects the `resources/read` directory behavior.
- * All register over the same tree, so they describe identical content.
+ * A reference MCP server for SEP-2640 (Skills Extension): it serves Agent Skills
+ * over the base Resources primitive under the `skill://` scheme, exposes a
+ * well-known `skill://index.json`, and declares the skills extension capability.
+ * It adds no new methods or schema — a current-spec client sees ordinary
+ * resources.
  */
-export const createServer = (options: CreateServerOptions = {}) => {
-  const readDirectoryReturnsListing =
-    options.readDirectoryReturnsListing ??
-    process.env.READ_DIRECTORY_MODE === "listing";
+export const createServer = () => {
   const server = new McpServer(
     {
       name: "list-resources-demo",
-      title: "List Resources Demo",
-      version: "0.1.0",
+      title: "Skills over MCP (SEP-2640) demo",
+      version: "0.2.0",
     },
     {
       capabilities: {
-        resources: { listChanged: true },
+        resources: {},
+        // SEP-2133 extension negotiation; empty object = supported.
+        extensions: { [SKILLS_EXTENSION]: {} },
       },
       instructions:
-        "Demonstrates ways to list a directory's resources. Call resources/list to " +
-        "see every resource (directories are marked with mimeType 'inode/directory'). " +
-        "Then call resources/directory/read with a directory uri (proposed: paginated " +
-        "Resource[] metadata with digests), or resources/read a directory. Reading a " +
-        "directory returns " +
-        (readDirectoryReturnsListing
-          ? "a Resource[] listing in one call (Sam's single-RPC alternative)."
-          : "its children embedded as ResourceContents[] (current spec)."),
+        "This server serves Agent Skills (SEP-2640) under the skill:// scheme. " +
+        "Read skill://index.json to enumerate them, or read a skill directly — " +
+        "e.g. skill://git-workflow/SKILL.md. Supporting files are siblings under " +
+        "the skill path (e.g. skill://pdf-processing/scripts/extract.py); relative " +
+        "links in a SKILL.md resolve against the skill's root.",
     }
   );
 
-  registerCurrent(server, { readDirectoryReturnsListing });
-  registerProposed(server);
+  registerSkills(server);
   registerDocs(server);
 
   return {
     server,
     cleanup: (_sessionId?: string) => {
-      // No per-session state to tear down in this minimal demo.
+      // No per-session state to tear down.
     },
   };
 };

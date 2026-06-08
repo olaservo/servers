@@ -1,209 +1,102 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import {
-  ReadResourceDirectoryResultSchema,
-  DIRECTORY_MIME_TYPE,
-} from "@modelcontextprotocol/sdk/types.js";
 import { createServer } from "../server/index.js";
-import { DIRECTORY_MIME } from "../resources/tree.js";
 
-// Wire a client to the demo server over a linked in-memory transport pair.
-async function connect(options?: { readDirectoryReturnsListing?: boolean }) {
-  const { server } = createServer(options);
-  const [clientTransport, serverTransport] =
-    InMemoryTransport.createLinkedPair();
+const sha256 = (s: string) =>
+  "sha256:" + createHash("sha256").update(s, "utf-8").digest("hex");
+
+async function connect() {
+  const { server } = createServer();
+  const [ct, st] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test", version: "0.0.0" });
-  await Promise.all([
-    server.connect(serverTransport),
-    client.connect(clientTransport),
-  ]);
+  await Promise.all([server.connect(st), client.connect(ct)]);
   return client;
 }
-
-const ROOT = "demo://fs/";
 
 let client: Awaited<ReturnType<typeof connect>>;
 beforeEach(async () => {
   client = await connect();
 });
 
-describe("resources/list", () => {
-  it("lists every node, marking directories with inode/directory", async () => {
+const readText = async (uri: string) => {
+  const res = await client.readResource({ uri });
+  return (res.contents[0] as { text?: string }).text ?? "";
+};
+
+describe("capability", () => {
+  it("declares the io.modelcontextprotocol/skills extension", () => {
+    const caps = client.getServerCapabilities();
+    expect(caps?.extensions?.["io.modelcontextprotocol/skills"]).toBeDefined();
+  });
+});
+
+describe("resource mapping (skill://)", () => {
+  it("exposes each skill file as a resource under skill://", async () => {
     const { resources } = await client.listResources();
-    const byUri = new Map(resources.map((r) => [r.uri, r]));
+    const uris = new Set(resources.map((r) => r.uri));
+    expect(uris.has("skill://git-workflow/SKILL.md")).toBe(true);
+    expect(uris.has("skill://git-workflow/references/COMMITS.md")).toBe(true);
+    expect(uris.has("skill://pdf-processing/scripts/extract.py")).toBe(true);
+    expect(uris.has("skill://acme/billing/refunds/SKILL.md")).toBe(true);
+    expect(uris.has("skill://index.json")).toBe(true);
+  });
 
-    expect(byUri.has(ROOT)).toBe(true);
-    expect(byUri.get(ROOT)?.mimeType).toBe(DIRECTORY_MIME);
-    expect(byUri.has("demo://fs/readme.txt")).toBe(true);
-    expect(byUri.has("demo://fs/docs/")).toBe(true);
-    expect(byUri.get("demo://fs/docs/")?.mimeType).toBe(DIRECTORY_MIME);
-    expect(byUri.get("demo://fs/readme.txt")?.mimeType).toBe("text/plain");
+  it("sets SKILL.md metadata from frontmatter", async () => {
+    const { resources } = await client.listResources();
+    const gw = resources.find((r) => r.uri === "skill://git-workflow/SKILL.md");
+    expect(gw?.mimeType).toBe("text/markdown");
+    expect(gw?.name).toBe("git-workflow");
+    expect(gw?.description).toContain("Git");
+  });
+
+  it("reads a SKILL.md with YAML frontmatter", async () => {
+    const text = await readText("skill://git-workflow/SKILL.md");
+    expect(text).toMatch(/^---\n/);
+    expect(text).toContain("name: git-workflow");
+    expect(text).toContain("description:");
+  });
+
+  it("reads supporting files as siblings under the skill path", async () => {
+    const py = await readText("skill://pdf-processing/scripts/extract.py");
+    expect(py).toContain("def main");
   });
 });
 
-describe("Version A — current spec: resources/read -> ResourceContents[]", () => {
-  it("returns a directory's children embedded as contents (no pagination)", async () => {
-    const result = await client.readResource({ uri: ROOT });
-    // Root has 5 children: readme.txt, data.json, docs/, images/, bulk/
-    // resources/read returns them all in one array — there is no cursor to page.
-    expect(result.contents).toHaveLength(5);
-    const uris = result.contents.map((c) => c.uri).sort();
-    expect(uris).toEqual(
-      [
-        "demo://fs/bulk/",
-        "demo://fs/data.json",
-        "demo://fs/docs/",
-        "demo://fs/images/",
-        "demo://fs/readme.txt",
-      ].sort()
-    );
-    // A text child carries real text content.
-    const readme = result.contents.find(
-      (c) => c.uri === "demo://fs/readme.txt"
-    );
-    expect(typeof (readme as { text?: string }).text).toBe("string");
-  });
+describe("skill://index.json", () => {
+  it("enumerates skills with url, digest, and verbatim frontmatter", async () => {
+    const index = JSON.parse(await readText("skill://index.json"));
+    expect(Array.isArray(index.skills)).toBe(true);
+    const names = index.skills.map((s: any) => s.frontmatter.name).sort();
+    expect(names).toEqual(["git-workflow", "pdf-processing", "refunds"]);
 
-  it("returns a single content entry for a leaf resource", async () => {
-    const result = await client.readResource({ uri: "demo://fs/data.json" });
-    expect(result.contents).toHaveLength(1);
-    expect(result.contents[0].uri).toBe("demo://fs/data.json");
-  });
-});
-
-describe("Version B — proposed: resources/directory/read -> Resource[]", () => {
-  const readDir = (uri: string, cursor?: string) =>
-    client.request(
-      { method: "resources/directory/read", params: { uri, cursor } },
-      ReadResourceDirectoryResultSchema
-    );
-
-  // Walk every page, returning the accumulated resources and the page count.
-  const readDirAll = async (uri: string) => {
-    const resources = [] as Awaited<ReturnType<typeof readDir>>["resources"];
-    let cursor: string | undefined;
-    let pages = 0;
-    do {
-      const res = await readDir(uri, cursor);
-      resources.push(...res.resources);
-      cursor = res.nextCursor;
-      pages++;
-    } while (cursor);
-    return { resources, pages };
-  };
-
-  it("returns children as metadata with a digest and no contents", async () => {
-    const { resources } = await readDirAll(ROOT);
-    expect(resources).toHaveLength(5);
-    for (const r of resources) {
-      expect(r.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
-      expect(typeof r.size).toBe("number");
-      // Metadata only — no embedded content fields.
-      expect((r as Record<string, unknown>).text).toBeUndefined();
-      expect((r as Record<string, unknown>).blob).toBeUndefined();
+    for (const entry of index.skills) {
+      expect(entry.url).toMatch(/^skill:\/\/.*\/SKILL\.md$/);
+      expect(entry.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+      expect(typeof entry.frontmatter.description).toBe("string");
     }
   });
 
-  it("paginates with a cursor (page size 3)", async () => {
-    const first = await readDir("demo://fs/bulk/");
-    // 8 bulk files / page size 3 -> first page is full and has a nextCursor.
-    expect(first.resources).toHaveLength(3);
-    expect(first.nextCursor).toBeTruthy();
-
-    const all = await readDirAll("demo://fs/bulk/");
-    expect(all.resources).toHaveLength(8);
-    expect(all.pages).toBe(3); // 3 + 3 + 2
+  it("names the prefixed skill by its final path segment", async () => {
+    const index = JSON.parse(await readText("skill://index.json"));
+    const refunds = index.skills.find((s: any) => s.frontmatter.name === "refunds");
+    expect(refunds.url).toBe("skill://acme/billing/refunds/SKILL.md");
   });
 
-  it("marks nested directories with inode/directory", async () => {
-    const { resources } = await readDirAll(ROOT);
-    const docs = resources.find((r) => r.uri === "demo://fs/docs/");
-    expect(docs?.mimeType).toBe(DIRECTORY_MIME);
+  it("passes through extra frontmatter verbatim (license, metadata)", async () => {
+    const index = JSON.parse(await readText("skill://index.json"));
+    const refunds = index.skills.find((s: any) => s.frontmatter.name === "refunds");
+    expect(refunds.frontmatter.license).toBe("Apache-2.0");
+    const pdf = index.skills.find((s: any) => s.frontmatter.name === "pdf-processing");
+    expect(pdf.frontmatter.metadata.version).toBe("2.1.0");
   });
 
-  it("can expand a nested directory", async () => {
-    const { resources } = await readDir("demo://fs/docs/");
-    expect(resources.map((r) => r.uri)).toEqual(["demo://fs/docs/guide.md"]);
-  });
-
-  it("produces stable digests across calls", async () => {
-    const a = await readDirAll(ROOT);
-    const b = await readDirAll(ROOT);
-    expect(a.resources.map((r) => r.digest)).toEqual(
-      b.resources.map((r) => r.digest)
-    );
-  });
-
-  it("rejects reading a non-directory as a directory", async () => {
-    await expect(readDir("demo://fs/readme.txt")).rejects.toThrow();
-  });
-});
-
-describe("Version C — Sam's alternative: resources/read -> Resource[] (single RPC)", () => {
-  it("returns a directory's listing in the read result, no contents", async () => {
-    const listingClient = await connect({ readDirectoryReturnsListing: true });
-    const result = await listingClient.readResource({ uri: ROOT });
-
-    // One call, a typed Resource[] listing instead of ResourceContents[].
-    expect(result.contents).toBeUndefined();
-    expect(result.resources).toBeDefined();
-    expect(result.resources).toHaveLength(5);
-    for (const r of result.resources!) {
-      expect(r.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
-      expect((r as Record<string, unknown>).text).toBeUndefined();
+  it("digest matches the actual SKILL.md bytes (integrity)", async () => {
+    const index = JSON.parse(await readText("skill://index.json"));
+    for (const entry of index.skills) {
+      const md = await readText(entry.url);
+      expect(sha256(md)).toBe(entry.digest);
     }
-  });
-
-  it("still returns contents when reading a leaf (file)", async () => {
-    const listingClient = await connect({ readDirectoryReturnsListing: true });
-    const result = await listingClient.readResource({
-      uri: "demo://fs/data.json",
-    });
-    expect(result.resources).toBeUndefined();
-    expect(result.contents).toHaveLength(1);
-  });
-});
-
-describe("skills-scale tree (demo://skills/)", () => {
-  const readDir = (uri: string, cursor?: string) =>
-    client.request(
-      { method: "resources/directory/read", params: { uri, cursor } },
-      ReadResourceDirectoryResultSchema
-    );
-
-  it("exposes 12 skills, each with a nested reference directory", async () => {
-    const all = [] as Awaited<ReturnType<typeof readDir>>["resources"];
-    let cursor: string | undefined;
-    do {
-      const res = await readDir("demo://skills/", cursor);
-      all.push(...res.resources);
-      cursor = res.nextCursor;
-    } while (cursor);
-    expect(all.filter((r) => r.mimeType === DIRECTORY_MIME).length).toBe(12);
-
-    const skill1 = await readDir("demo://skills/skill-01/");
-    expect(skill1.resources.some((r) => r.uri.endsWith("/reference/"))).toBe(true);
-  });
-});
-
-describe("docs resources", () => {
-  it("serves the README as a single static resource", async () => {
-    const list = await client.listResources();
-    const readme = list.resources.find((r) => r.uri === "demo://docs/readme.md");
-    expect(readme?.mimeType).toBe("text/markdown");
-
-    const result = await client.readResource({ uri: "demo://docs/readme.md" });
-    expect(result.contents).toHaveLength(1);
-    const text = (result.contents![0] as { text?: string }).text ?? "";
-    expect(text).toContain("list-resources-demo");
-  });
-});
-
-describe("fork SDK surface", () => {
-  it("exports the shared DIRECTORY_MIME_TYPE constant", () => {
-    // The demo and the forked SDK agree on the directory marker.
-    expect(DIRECTORY_MIME_TYPE).toBe("inode/directory");
-    expect(DIRECTORY_MIME).toBe(DIRECTORY_MIME_TYPE);
   });
 });

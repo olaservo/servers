@@ -1,7 +1,7 @@
 {
   "name": "@olaservo/server-list-resources-demo",
-  "version": "0.1.0",
-  "description": "Minimal MCP server demonstrating two ways to list a directory's resources: the currently-supported resources/read -> ResourceContents[] approach, and the proposed resources/directory/read -> Resource[] approach (backed by a forked SDK).",
+  "version": "0.2.0",
+  "description": "Reference MCP server for SEP-2640 (Skills Extension): serves Agent Skills over the base Resources primitive under the skill:// scheme, with a well-known skill://index.json and the io.modelcontextprotocol/skills capability. No new methods or schema.",
   "license": "SEE LICENSE IN LICENSE",
   "author": "olaservo",
   "type": "module",
@@ -16,12 +16,11 @@
     "watch": "tsc --watch",
     "start:stdio": "node dist/index.js stdio",
     "start:streamableHttp": "node dist/index.js streamableHttp",
-    "compare": "npm run build && node scripts/compare.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "npm:@olaservo/mcp-sdk@1.29.0-directory-read.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "cors": "^2.8.5",
     "express": "^5.2.1"
   },
