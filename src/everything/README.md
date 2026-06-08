@@ -13,6 +13,15 @@ This MCP server attempts to exercise all the features of the MCP protocol. It is
 
 A complete list of the registered MCP primitives and other protocol features demonstrated can be found in the [Server Features](docs/features.md) document.
 
+## Experimental: full JSON Schema 2020-12 tool inputs (SEP-2106)
+
+This build runs on the 2.0 SDK (`@modelcontextprotocol/server@2.0.0-alpha.2`) to demonstrate capabilities from recently finalized SEPs:
+
+- **[SEP-2106](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2106-json-schema-2020-12.md)** (Final) removes the old `type`/`properties`/`required` restriction on tool `inputSchema`/`outputSchema`, allowing the full JSON Schema 2020-12 vocabulary. The `get-enum-selections` tool uses the SDK's `fromJsonSchema` adapter to advertise — and strictly validate against — every [SEP-1330](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1330) enum variety as a **tool input**: untitled single/multi-select (`enum`), titled single-select (`oneOf` of `{const, title}`), titled multi-select (`items.anyOf`), and the legacy `enumNames` form. The titled and `enumNames` shapes were not expressible in a tool input before SEP-2106 (previously only reachable via elicitation `requestedSchema`).
+- The Streamable HTTP transport runs **stateless** (no `Mcp-Session-Id`), following **[SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2575-stateless-mcp.md)** (Make MCP Stateless) and **[SEP-2567](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2567-sessionless-mcp.md)** (Sessionless MCP).
+
+> The SDK dependency is pinned to `2.0.0-alpha.2` deliberately: it is the last alpha that still ships the experimental tasks API (removed by SEP-2663 in the next release), which the task demo tools rely on. Expect API churn while the 2.0 SDK is in alpha.
+
 ## Usage with Claude Desktop (uses [stdio Transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio))
 
 Add to your `claude_desktop_config.json`:
