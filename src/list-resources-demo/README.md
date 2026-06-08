@@ -109,7 +109,7 @@ ACCEPT='Accept: application/json, text/event-stream'
 # 1. initialize — capture the mcp-session-id response header
 SID=$(curl -sD - -o /dev/null -X POST $BASE/mcp \
   -H 'Content-Type: application/json' -H "$ACCEPT" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' \
   | grep -i '^mcp-session-id:' | tr -d '\r' | awk '{print $2}')
 
 # 2. complete the handshake
