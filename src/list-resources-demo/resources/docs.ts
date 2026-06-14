@@ -34,6 +34,14 @@ const DOCS: Doc[] = [
     file: "README.md",
     description: "This server's README, served as a single static resource.",
   },
+  {
+    uri: "demo://docs/comparison.md",
+    name: "COMPARISON.md",
+    title: "Listing comparison",
+    file: "COMPARISON.md",
+    description:
+      "ResourceContents[] vs resources/directory/read, as a single static resource.",
+  },
 ];
 
 /**

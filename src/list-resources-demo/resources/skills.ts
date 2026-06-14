@@ -109,6 +109,37 @@ export const SKILLS: Skill[] = [
   },
 ];
 
+// A deliberately large skill: many sized reference files in one directory, so the
+// listing comparison (ResourceContents[] vs resources/directory/read) has
+// meaningful numbers. See COMPARISON.md.
+const REF_COUNT = 60;
+const para =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor. ".repeat(
+    20
+  );
+const bigSkill = (): Skill => ({
+  skillPath: "data-pipeline",
+  frontmatter: {
+    name: "data-pipeline",
+    description: "Build and run ETL pipelines",
+    metadata: { version: "0.3.0" },
+  },
+  body: "# data-pipeline\n\nPick the matching source adapter from references/.\n",
+  files: [
+    ...Array.from({ length: REF_COUNT }, (_, i) => {
+      const n = String(i + 1).padStart(2, "0");
+      return {
+        path: `references/ref-${n}.md`,
+        mimeType: "text/markdown",
+        text: `# reference ${n}\n\n${para}`,
+      };
+    }),
+    { path: "scripts/run.py", mimeType: "text/x-python", text: "print('run')\n" },
+  ],
+});
+
+SKILLS.push(bigSkill());
+
 /** The URI of a skill's SKILL.md, e.g. `skill://acme/billing/refunds/SKILL.md`. */
 export const skillUri = (skill: Skill): string =>
   `skill://${skill.skillPath}/SKILL.md`;

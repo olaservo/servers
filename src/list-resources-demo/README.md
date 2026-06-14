@@ -60,6 +60,16 @@ The only new protocol surface is the optional, capability-gated
 fork); it returns the same `Resource[]` shape as `resources/list`, so a
 current-spec client otherwise sees ordinary resources.
 
+## Why `resources/directory/read`
+
+[COMPARISON.md](COMPARISON.md) measures it against the shape available today — the
+`ResourceContents[]` array a `resources/read` returns — for the same directory.
+For a 60-file directory, the `ResourceContents[]` form ships ~17× the bytes (it
+embeds every child's content to enumerate), carries no `name`, and can't paginate
+or represent subdirectories; `resources/directory/read` returns paginated metadata
+only. Run it with `npm run compare`. (The repo includes a large `data-pipeline`
+skill so the numbers are meaningful.)
+
 ## Try it (live)
 
 Live server: `https://olaservo-mcp-list-resources-demo.hf.space` (MCP at `/mcp`,

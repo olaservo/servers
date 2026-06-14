@@ -134,7 +134,12 @@ describe("skill://index.json", () => {
     const index = JSON.parse(await readText("skill://index.json"));
     expect(Array.isArray(index.skills)).toBe(true);
     const names = index.skills.map((s: any) => s.frontmatter.name).sort();
-    expect(names).toEqual(["git-workflow", "pdf-processing", "refunds"]);
+    expect(names).toEqual([
+      "data-pipeline",
+      "git-workflow",
+      "pdf-processing",
+      "refunds",
+    ]);
 
     for (const entry of index.skills) {
       expect(entry.url).toMatch(/^skill:\/\/.*\/SKILL\.md$/);
