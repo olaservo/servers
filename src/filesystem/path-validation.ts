@@ -61,26 +61,34 @@ export function isPathWithinAllowedDirectories(absolutePath: string, allowedDire
       throw new Error('Allowed directories must be absolute paths after normalization');
     }
 
+    // Windows/NTFS is case-insensitive, so fold case before comparison (#470).
+    // The paths are already normalized, so only their casing can differ here.
+    // POSIX filesystems are case-sensitive, so compare as-is there.
+    const isWindows = path.sep === '\\';
+    const cmpPath = isWindows ? normalizedPath.toLowerCase() : normalizedPath;
+    const cmpDir = isWindows ? normalizedDir.toLowerCase() : normalizedDir;
+
     // Check if normalizedPath is within normalizedDir
     // Path is inside if it's the same or a subdirectory
-    if (normalizedPath === normalizedDir) {
+    if (cmpPath === cmpDir) {
       return true;
     }
-    
-    // Special case for root directory to avoid double slash
-    // On Windows, we need to check if both paths are on the same drive
+
+    // Special case for POSIX root directory to avoid double slash
     if (normalizedDir === path.sep) {
       return normalizedPath.startsWith(path.sep);
     }
-    
-    // On Windows, also check for drive root (e.g., "C:\")
-    if (path.sep === '\\' && normalizedDir.match(/^[A-Za-z]:\\?$/)) {
-      // Ensure both paths are on the same drive
-      const dirDrive = normalizedDir.charAt(0).toLowerCase();
-      const pathDrive = normalizedPath.charAt(0).toLowerCase();
-      return pathDrive === dirDrive && normalizedPath.startsWith(normalizedDir.replace(/\\?$/, '\\'));
+
+    // On Windows, also check for drive root (e.g., "C:\").
+    // startsWith on the "<drive>:\" prefix already enforces a same-drive match.
+    if (isWindows && /^[A-Za-z]:\\?$/.test(normalizedDir)) {
+      return cmpPath.startsWith(cmpDir.replace(/\\?$/, '\\'));
     }
-    
-    return normalizedPath.startsWith(normalizedDir + path.sep);
+
+    // Tolerate a trailing separator on the allowed dir. A bare UNC share root
+    // ("\\server\share") resolves to "\\server\share\", and appending another
+    // separator would produce a double separator that never matches (#4265).
+    const cmpDirWithSep = cmpDir.endsWith(path.sep) ? cmpDir : cmpDir + path.sep;
+    return cmpPath.startsWith(cmpDirWithSep);
   });
 }

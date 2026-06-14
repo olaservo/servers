@@ -381,6 +381,46 @@ describe('Path Validation', () => {
     });
   });
 
+  // Regression for #470: "Filesystem server access denied for allowed paths on Windows".
+  // Windows/NTFS is case-insensitive, but the comparison in isPathWithinAllowedDirectories
+  // previously folded case only on the drive letter. Because fs.realpath (used at startup)
+  // and the LLM both emit canonical/arbitrary casing that rarely matches the user-typed
+  // allowed directory, in-allowed paths were wrongly rejected. These tests pin the
+  // case-insensitive behavior on Windows.
+  describe('Windows case-insensitivity (#470)', () => {
+    it('matches subpaths regardless of segment case', () => {
+      if (path.sep === '\\') {
+        const allowed = ['C:\\source'];
+        // Same directory, differently cased segment — must be allowed on Windows.
+        expect(isPathWithinAllowedDirectories('C:\\Source\\servers\\file.txt', allowed)).toBe(true);
+        expect(isPathWithinAllowedDirectories('C:\\SOURCE\\file.txt', allowed)).toBe(true);
+        expect(isPathWithinAllowedDirectories('c:\\source\\file.txt', allowed)).toBe(true);
+      }
+    });
+
+    it('matches when the allowed dir is cased differently than the request', () => {
+      if (path.sep === '\\') {
+        // Exact scenario from the issue: allowed 'c:\source', request canonical-cased path.
+        const allowed = ['c:\\source', 'C:\\Users\\mgoodner'];
+        expect(
+          isPathWithinAllowedDirectories('C:\\source\\servers\\src\\fetch\\README.md', allowed)
+        ).toBe(true);
+        expect(isPathWithinAllowedDirectories('C:\\USERS\\MGOODNER\\notes.txt', allowed)).toBe(true);
+      }
+    });
+
+    it('still rejects genuinely different directories (no case-fold false positives)', () => {
+      if (path.sep === '\\') {
+        const allowed = ['C:\\source'];
+        // Prefix-sibling must not match even with case folding.
+        expect(isPathWithinAllowedDirectories('C:\\sourcex\\file.txt', allowed)).toBe(false);
+        expect(isPathWithinAllowedDirectories('C:\\Source2\\file.txt', allowed)).toBe(false);
+        // Different drive must not match.
+        expect(isPathWithinAllowedDirectories('D:\\source\\file.txt', allowed)).toBe(false);
+      }
+    });
+  });
+
   describe('Edge Cases', () => {
     it('rejects non-string inputs safely', () => {
       const allowed = ['/home/user/project'];
@@ -437,6 +477,42 @@ describe('Path Validation', () => {
         expect(isPathWithinAllowedDirectories('\\\\server\\share\\project\\file', allowed)).toBe(true);
         expect(isPathWithinAllowedDirectories('\\\\server\\share\\other', allowed)).toBe(false);
         expect(isPathWithinAllowedDirectories('\\\\other\\share\\project', allowed)).toBe(false);
+      }
+    });
+
+    // Regression for #4265: a bare UNC share root resolves to "\\server\share\"
+    // (trailing separator), which the old comparison turned into a double
+    // separator and never matched, rejecting every in-share path.
+    it('handles bare UNC share roots on Windows (#4265)', () => {
+      if (path.sep === '\\') {
+        const allowed = ['\\\\server\\share'];
+
+        // In-share paths must be allowed.
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\sub\\file.txt', allowed)).toBe(true);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share', allowed)).toBe(true);
+        // Sibling share / prefix attack / different server must be blocked.
+        expect(isPathWithinAllowedDirectories('\\\\server\\share2\\file.txt', allowed)).toBe(false);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share-evil\\file.txt', allowed)).toBe(false);
+        expect(isPathWithinAllowedDirectories('\\\\other\\share\\file.txt', allowed)).toBe(false);
+      }
+    });
+
+    // UNC allowed dirs that already carry a trailing separator, plus prefix-sibling
+    // blocking. Test cases adapted from quocnam1's PR #3981.
+    it('handles UNC allowed dirs with a trailing separator on Windows (#3981)', () => {
+      if (path.sep === '\\') {
+        const allowed = ['\\\\server\\share\\project\\'];
+
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project\\file.txt', allowed)).toBe(true);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project\\src\\index.ts', allowed)).toBe(true);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project\\deeply\\nested\\file', allowed)).toBe(true);
+        // Exact match, with and without the trailing separator.
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project', allowed)).toBe(true);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project\\', allowed)).toBe(true);
+        // Sibling directories that share a common prefix must NOT match.
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project2', allowed)).toBe(false);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\project_backup', allowed)).toBe(false);
+        expect(isPathWithinAllowedDirectories('\\\\server\\share\\projectile', allowed)).toBe(false);
       }
     });
   });
