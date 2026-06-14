@@ -41,13 +41,21 @@ skill `refunds`; the prefix is organizational). Definitions live in
 - **Enumeration** — `skill://index.json` lists each skill with `url`, `digest`
   (sha256 of `SKILL.md`), and verbatim `frontmatter`. Enumeration is optional in
   the spec; this server provides it.
-- **Capability** — `extensions: { "io.modelcontextprotocol/skills": {} }`.
+- **Capability** — `extensions: { "io.modelcontextprotocol/skills": { "directoryRead": true } }`.
+- **Directory listing** — `resources/directory/read` lists the direct children of
+  a directory resource (files with their metadata, subdirectories as
+  `inode/directory`), scoped and paginated like `resources/list`. Directory URIs
+  have no trailing slash (e.g. `skill://pdf-processing`); a non-directory returns
+  error `-32602`. This is the one optional method the SEP defines, gated behind
+  the `directoryRead` capability.
 - **Integrity/caching** — the index `digest` is the sha256 of the `SKILL.md`
   bytes; a host verifies content against it and can skip re-reads when unchanged.
 
-Adds no methods or schema, so a current-spec client just sees ordinary resources.
-Archive distribution (`.tar.gz`/`.zip`) is allowed by the spec but not yet
-implemented here.
+The only new protocol surface is the optional, capability-gated
+`resources/directory/read` (defined here on the stock SDK with a local schema — no
+fork); it returns the same `Resource[]` shape as `resources/list`, so a
+current-spec client otherwise sees ordinary resources. Archive distribution
+(`.tar.gz`/`.zip`) is allowed by the spec but not yet implemented here.
 
 ## Try it (live)
 
@@ -90,6 +98,11 @@ curl -s -X POST $BASE/mcp -H 'Content-Type: application/json' -H "$ACCEPT" \
 curl -s -X POST $BASE/mcp -H 'Content-Type: application/json' -H "$ACCEPT" \
   -H "mcp-session-id: $SID" \
   -d '{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"skill://git-workflow/SKILL.md"}}'
+
+# list a directory's children (resources/directory/read)
+curl -s -X POST $BASE/mcp -H 'Content-Type: application/json' -H "$ACCEPT" \
+  -H "mcp-session-id: $SID" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"resources/directory/read","params":{"uri":"skill://pdf-processing"}}'
 ```
 
 ### Automated conformance smoke test

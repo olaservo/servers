@@ -1,8 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../server/index.js";
+
+const DirResult = z
+  .object({
+    resources: z.array(
+      z.object({ uri: z.string(), name: z.string().optional(), mimeType: z.string().optional() }).loose()
+    ),
+    nextCursor: z.string().optional(),
+  })
+  .loose();
 
 const sha256 = (s: string) =>
   "sha256:" + createHash("sha256").update(s, "utf-8").digest("hex");
@@ -26,9 +36,63 @@ const readText = async (uri: string) => {
 };
 
 describe("capability", () => {
-  it("declares the io.modelcontextprotocol/skills extension", () => {
+  it("declares the io.modelcontextprotocol/skills extension with directoryRead", () => {
     const caps = client.getServerCapabilities();
-    expect(caps?.extensions?.["io.modelcontextprotocol/skills"]).toBeDefined();
+    const skills = caps?.extensions?.["io.modelcontextprotocol/skills"] as
+      | { directoryRead?: boolean }
+      | undefined;
+    expect(skills).toBeDefined();
+    expect(skills?.directoryRead).toBe(true);
+  });
+});
+
+describe("resources/directory/read (SEP-2640)", () => {
+  const readDir = (uri: string, cursor?: string) =>
+    client.request(
+      { method: "resources/directory/read", params: { uri, cursor } },
+      DirResult
+    );
+
+  it("lists a skill root's direct children, marking subdirs inode/directory", async () => {
+    const { resources } = await readDir("skill://pdf-processing");
+    const byName = new Map(resources.map((r) => [r.name, r]));
+    expect(byName.get("SKILL.md")?.mimeType).toBe("text/markdown");
+    expect(byName.get("references")?.mimeType).toBe("inode/directory");
+    expect(byName.get("scripts")?.mimeType).toBe("inode/directory");
+  });
+
+  it("descends into a subdirectory (not recursive)", async () => {
+    const { resources } = await readDir("skill://pdf-processing/references");
+    expect(resources.map((r) => r.uri)).toEqual([
+      "skill://pdf-processing/references/FORMS.md",
+    ]);
+  });
+
+  it("navigates organizational prefixes down to the skill", async () => {
+    expect((await readDir("skill://acme")).resources.map((r) => r.name)).toEqual([
+      "billing",
+    ]);
+    expect(
+      (await readDir("skill://acme/billing")).resources.map((r) => r.name)
+    ).toEqual(["refunds"]);
+    const refunds = await readDir("skill://acme/billing/refunds");
+    expect(refunds.resources.map((r) => r.name).sort()).toEqual([
+      "SKILL.md",
+      "examples",
+    ]);
+  });
+
+  it("tolerates a trailing slash on the directory URI", async () => {
+    const { resources } = await readDir("skill://pdf-processing/scripts/");
+    expect(resources.map((r) => r.uri)).toEqual([
+      "skill://pdf-processing/scripts/extract.py",
+    ]);
+  });
+
+  it("errors (-32602) on a non-directory resource", async () => {
+    await expect(readDir("skill://pdf-processing/SKILL.md")).rejects.toMatchObject({
+      code: -32602,
+    });
   });
 });
 

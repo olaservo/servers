@@ -7,8 +7,18 @@
 //   SMOKE_URL=http://localhost:7860 node scripts/smoke.mjs
 // Default target is the live Hugging Face Space. Exits non-zero on any failure.
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+const DirResult = z
+  .object({
+    resources: z.array(
+      z.object({ uri: z.string(), name: z.string().optional(), mimeType: z.string().optional() }).loose()
+    ),
+    nextCursor: z.string().optional(),
+  })
+  .loose();
 
 const BASE =
   process.argv[2] ||
@@ -28,12 +38,11 @@ const client = new Client({ name: "smoke", version: "0.0.0" });
 const transport = new StreamableHTTPClientTransport(new URL(BASE + "/mcp"));
 await client.connect(transport);
 
-// Capability: the skills extension is declared.
+// Capability: the skills extension is declared, with directoryRead.
 const caps = client.getServerCapabilities();
-ok(
-  !!caps?.extensions?.["io.modelcontextprotocol/skills"],
-  "declares the io.modelcontextprotocol/skills extension capability"
-);
+const skillsCap = caps?.extensions?.["io.modelcontextprotocol/skills"];
+ok(!!skillsCap, "declares the io.modelcontextprotocol/skills extension capability");
+ok(skillsCap?.directoryRead === true, "advertises directoryRead: true");
 
 // resources/list exposes skill:// resources and the index.
 const { resources } = await client.listResources();
@@ -77,6 +86,34 @@ ok(
   (script.contents[0]?.text ?? "").includes("def main"),
   "supporting file skill://pdf-processing/scripts/extract.py is readable"
 );
+
+// resources/directory/read: list a skill root's direct children.
+const readDir = (uri) =>
+  client.request({ method: "resources/directory/read", params: { uri } }, DirResult);
+const root = await readDir("skill://pdf-processing");
+const byName = new Map(root.resources.map((r) => [r.name, r]));
+ok(byName.has("SKILL.md"), "directory/read(skill://pdf-processing) lists SKILL.md");
+ok(
+  byName.get("references")?.mimeType === "inode/directory" &&
+    byName.get("scripts")?.mimeType === "inode/directory",
+  "directory/read marks subdirectories with inode/directory"
+);
+
+// Descend into a subdirectory.
+const refs = await readDir("skill://pdf-processing/references");
+ok(
+  refs.resources.some((r) => r.uri === "skill://pdf-processing/references/FORMS.md"),
+  "directory/read descends into a subdirectory"
+);
+
+// Reading a non-directory as a directory is an error.
+let dirErr = false;
+try {
+  await readDir("skill://pdf-processing/SKILL.md");
+} catch {
+  dirErr = true;
+}
+ok(dirErr, "directory/read on a non-directory returns an error");
 
 console.log(`\n${failures === 0 ? "OK" : failures + " FAILED"}`);
 // Close the client and let the event loop drain naturally. Calling process.exit()
