@@ -115,6 +115,22 @@ try {
 }
 ok(dirErr, "directory/read on a non-directory returns an error");
 
+// Archives: each skill lists .tar.gz + .zip; bytes match the index digest.
+const pdf = index.skills.find((s) => s.frontmatter?.name === "pdf-processing");
+const mimes = (pdf.archives ?? []).map((a) => a.mimeType).sort();
+ok(
+  mimes.join(",") === "application/gzip,application/zip",
+  "index lists .tar.gz and .zip archives per skill"
+);
+const tgz = pdf.archives.find((a) => a.mimeType === "application/gzip");
+const tgzRes = await client.readResource({ uri: tgz.url });
+const tgzBytes = Buffer.from(tgzRes.contents[0].blob, "base64");
+ok(
+  "sha256:" + createHash("sha256").update(tgzBytes).digest("hex") === tgz.digest,
+  "archive bytes match the index digest"
+);
+ok(tgzBytes[0] === 0x1f && tgzBytes[1] === 0x8b, "archive is a valid gzip");
+
 console.log(`\n${failures === 0 ? "OK" : failures + " FAILED"}`);
 // Close the client and let the event loop drain naturally. Calling process.exit()
 // while the SSE handle is still open trips a libuv assertion on Windows, so set

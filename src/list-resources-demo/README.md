@@ -50,12 +50,15 @@ skill `refunds`; the prefix is organizational). Definitions live in
   the `directoryRead` capability.
 - **Integrity/caching** — the index `digest` is the sha256 of the `SKILL.md`
   bytes; a host verifies content against it and can skip re-reads when unchanged.
+- **Archives** — each skill is also offered as a packed `.tar.gz` and `.zip`
+  resource (`skill://<skill-path>.tar.gz` / `.zip`), listed under the index
+  entry's `archives` with `mimeType` and a sha256 `digest`. `SKILL.md` sits at the
+  archive root; reading one retrieves the whole skill in a single round trip.
 
 The only new protocol surface is the optional, capability-gated
 `resources/directory/read` (defined here on the stock SDK with a local schema — no
 fork); it returns the same `Resource[]` shape as `resources/list`, so a
-current-spec client otherwise sees ordinary resources. Archive distribution
-(`.tar.gz`/`.zip`) is allowed by the spec but not yet implemented here.
+current-spec client otherwise sees ordinary resources.
 
 ## Try it (live)
 

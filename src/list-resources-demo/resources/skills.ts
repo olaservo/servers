@@ -117,6 +117,10 @@ export const skillUri = (skill: Skill): string =>
 export const fileUri = (skill: Skill, file: SkillFile): string =>
   `skill://${skill.skillPath}/${file.path}`;
 
+/** The URI of a packed archive form of a skill, e.g. `skill://git-workflow.tar.gz`. */
+export const archiveUri = (skill: Skill, ext: "tar.gz" | "zip"): string =>
+  `skill://${skill.skillPath}.${ext}`;
+
 /** The reserved well-known index URI. */
 export const INDEX_URI = "skill://index.json";
 

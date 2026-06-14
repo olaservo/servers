@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createHash } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import { z } from "zod";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -162,5 +163,52 @@ describe("skill://index.json", () => {
       const md = await readText(entry.url);
       expect(sha256(md)).toBe(entry.digest);
     }
+  });
+
+  it("lists .tar.gz and .zip archives for each skill", async () => {
+    const index = JSON.parse(await readText("skill://index.json"));
+    for (const entry of index.skills) {
+      const mimes = entry.archives.map((a: any) => a.mimeType).sort();
+      expect(mimes).toEqual(["application/gzip", "application/zip"]);
+      for (const a of entry.archives) {
+        expect(a.url).toMatch(/\.(tar\.gz|zip)$/);
+        expect(a.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+      }
+    }
+  });
+});
+
+describe("archives", () => {
+  const readBlob = async (uri: string) => {
+    const res = await client.readResource({ uri });
+    return Buffer.from((res.contents[0] as { blob: string }).blob, "base64");
+  };
+
+  it("archive bytes match the index digest (integrity)", async () => {
+    const index = JSON.parse(await readText("skill://index.json"));
+    for (const entry of index.skills) {
+      for (const a of entry.archives) {
+        const bytes = await readBlob(a.url);
+        expect("sha256:" + createHash("sha256").update(bytes).digest("hex")).toBe(
+          a.digest
+        );
+      }
+    }
+  });
+
+  it(".tar.gz gunzips with SKILL.md at the archive root", async () => {
+    const tgz = await readBlob("skill://pdf-processing.tar.gz");
+    expect(tgz[0]).toBe(0x1f);
+    expect(tgz[1]).toBe(0x8b); // gzip magic
+    const tar = gunzipSync(tgz);
+    expect(tar.toString("utf-8", 0, 8)).toBe("SKILL.md"); // first tar entry, at root
+  });
+
+  it(".zip has the PK local-file-header magic", async () => {
+    const z = await readBlob("skill://pdf-processing.zip");
+    expect(z[0]).toBe(0x50);
+    expect(z[1]).toBe(0x4b);
+    expect(z[2]).toBe(0x03);
+    expect(z[3]).toBe(0x04);
   });
 });
