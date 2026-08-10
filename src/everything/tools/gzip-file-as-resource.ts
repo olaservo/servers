@@ -243,30 +243,59 @@ function expandIpv6(addr: string): number[] | null {
 }
 
 /**
- * Determines whether an IPv6 address string must not be fetched. IPv4-mapped
- * addresses (in either dotted or hex form) are unwrapped and classified as IPv4.
+ * Renders the dotted-quad IPv4 address encoded by two 16-bit hextets, used to
+ * unwrap the IPv6 forms that embed an IPv4 address.
+ */
+function ipv4FromHextets(hi: number, lo: number): string {
+  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+}
+
+/**
+ * Determines whether an IPv6 address string must not be fetched. Addresses that
+ * embed an IPv4 address (mapped, translated, IPv4-compatible, NAT64, 6to4) are
+ * unwrapped and classified as IPv4, so an internal destination cannot be reached
+ * by wrapping it in an IPv6 form that looks globally routable.
  */
 function isBlockedIpv6(ip: string): boolean {
   const g = expandIpv6(ip.toLowerCase());
   if (!g || g.some((h) => Number.isNaN(h))) {
     return true; // fail closed on anything we cannot parse
   }
-  // IPv4-mapped (::ffff:a.b.c.d): first 80 bits zero, next 16 bits 0xffff.
-  if (g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff) {
-    const v4 = `${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`;
-    return isBlockedIpv4(v4);
-  }
+  const zeroThrough = (n: number): boolean => g.slice(0, n).every((h) => h === 0);
+
+  // Forms that carry the IPv4 address in the last 32 bits.
+  const embedsIpv4InSuffix =
+    // IPv4-mapped (::ffff:a.b.c.d): first 80 bits zero, next 16 bits 0xffff.
+    (zeroThrough(5) && g[5] === 0xffff) ||
+    // IPv4-translated (::ffff:0:a.b.c.d, ::ffff:0:0/96).
+    (zeroThrough(4) && g[4] === 0xffff && g[5] === 0) ||
+    // NAT64 well-known prefix (64:ff9b::/96), reachable wherever a NAT64
+    // gateway is deployed, e.g. 64:ff9b::169.254.169.254 -> metadata service.
+    (g[0] === 0x0064 &&
+      g[1] === 0xff9b &&
+      g[2] === 0 &&
+      g[3] === 0 &&
+      g[4] === 0 &&
+      g[5] === 0);
+  if (embedsIpv4InSuffix) return isBlockedIpv4(ipv4FromHextets(g[6], g[7]));
+
   if (g.every((h) => h === 0)) return true; // :: unspecified
-  if (g.slice(0, 7).every((h) => h === 0) && g[7] === 1) return true; // ::1 loopback
+  if (zeroThrough(7) && g[7] === 1) return true; // ::1 loopback
   // IPv4-compatible (deprecated ::a.b.c.d, ::/96): first 96 bits zero. Unwrap
   // and classify as IPv4 so forms like ::127.0.0.1 are not treated as public.
-  if (g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) {
-    const v4 = `${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`;
-    return isBlockedIpv4(v4);
-  }
+  if (zeroThrough(6)) return isBlockedIpv4(ipv4FromHextets(g[6], g[7]));
+  // 6to4 (2002::/16) carries the IPv4 address in bits 16-48 instead.
+  if (g[0] === 0x2002) return isBlockedIpv4(ipv4FromHextets(g[1], g[2]));
+
   const first = g[0];
+  if (first === 0x0064 && g[1] === 0xff9b && g[2] === 0x0001) return true; // 64:ff9b:1::/48 local-use NAT64
+  if (first === 0x0100 && g[1] === 0 && g[2] === 0 && g[3] === 0) return true; // 100::/64 discard-only
+  if (first === 0x2001 && (g[1] & 0xfe00) === 0) return true; // 2001::/23 IETF protocol assignments (incl. Teredo)
+  if (first === 0x2001 && g[1] === 0x0db8) return true; // 2001:db8::/32 documentation
+  if (first === 0x5f00) return true; // 5f00::/16 SRv6 SIDs
   if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
   if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((first & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated, still internal)
   if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
