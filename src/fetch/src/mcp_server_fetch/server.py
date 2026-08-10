@@ -76,6 +76,15 @@ REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
 # is_private on Python < 3.13, so it is checked explicitly.
 _CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
 
+# 6to4 (RFC 3056) carries an IPv4 address in bits 16-48, so 2002:a9fe:a9fe::
+# is a route to 169.254.169.254 wherever a 6to4 relay is reachable. Neither
+# is_reserved nor is_private covers it, so the prefix is unwrapped explicitly.
+_SIXTOFOUR_NETWORK = ipaddress.ip_network("2002::/16")
+
+# Deprecated IPv6 site-local prefix (RFC 3879): still routed internally by some
+# stacks and not flagged by is_private, so it is blocked explicitly.
+_SITE_LOCAL_NETWORK = ipaddress.ip_network("fec0::/10")
+
 
 def _is_blocked_ip(
     ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
@@ -84,12 +93,18 @@ def _is_blocked_ip(
 
     Blocks loopback, private (RFC1918), carrier-grade NAT, link-local
     (including the cloud metadata address 169.254.169.254), unique-local,
-    multicast, reserved, and unspecified addresses.
+    site-local, multicast, reserved, and unspecified addresses. IPv6 forms
+    that embed an IPv4 address are unwrapped so an internal destination
+    cannot be reached by wrapping it in an address that looks routable.
     """
     # Unwrap IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1) so the
     # underlying IPv4 address is classified rather than the wrapper.
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
+    # Unwrap 6to4 (2002:a.b.c.d::/48), which embeds the IPv4 address in
+    # bits 16-48 rather than in the low 32 bits.
+    elif isinstance(ip, ipaddress.IPv6Address) and ip in _SIXTOFOUR_NETWORK:
+        ip = ipaddress.IPv4Address((int(ip) >> 80) & 0xFFFFFFFF)
     # Unwrap deprecated IPv4-compatible IPv6 addresses (::a.b.c.d, ::/96),
     # other than :: and ::1 which are classified as unspecified/loopback
     # below, so the embedded IPv4 address (e.g. ::127.0.0.1) is checked.
@@ -101,6 +116,9 @@ def _is_blocked_ip(
         ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
 
     if isinstance(ip, ipaddress.IPv4Address) and ip in _CGNAT_NETWORK:
+        return True
+
+    if isinstance(ip, ipaddress.IPv6Address) and ip in _SITE_LOCAL_NETWORK:
         return True
 
     return (

@@ -391,6 +391,28 @@ class TestValidateUrlIsSafe:
             await _validate_url_is_safe("http://[::ffff:127.0.0.1]/")
 
     @pytest.mark.asyncio
+    async def test_blocks_6to4_loopback(self):
+        # 2002::/16 embeds the IPv4 address in bits 16-48: 2002:7f00:1:: is
+        # a route to 127.0.0.1 wherever a 6to4 relay is reachable.
+        with pytest.raises(McpError):
+            await _validate_url_is_safe("http://[2002:7f00:1::]/")
+
+    @pytest.mark.asyncio
+    async def test_blocks_6to4_cloud_metadata(self):
+        with pytest.raises(McpError):
+            await _validate_url_is_safe("http://[2002:a9fe:a9fe::]/")
+
+    @pytest.mark.asyncio
+    async def test_blocks_ipv6_site_local(self):
+        with pytest.raises(McpError):
+            await _validate_url_is_safe("http://[fec0::1]/")
+
+    @pytest.mark.asyncio
+    async def test_blocks_nat64_cloud_metadata(self):
+        with pytest.raises(McpError):
+            await _validate_url_is_safe("http://[64:ff9b::a9fe:a9fe]/")
+
+    @pytest.mark.asyncio
     async def test_blocks_non_http_scheme(self):
         with pytest.raises(McpError):
             await _validate_url_is_safe("file:///etc/passwd")
@@ -399,6 +421,11 @@ class TestValidateUrlIsSafe:
     async def test_allows_public_ip_literal(self):
         # Public IP literal: should not raise (no DNS needed).
         await _validate_url_is_safe("https://1.1.1.1/")
+
+    @pytest.mark.asyncio
+    async def test_allows_public_ipv6_literal(self):
+        # The unwrapping above must not over-block ordinary global IPv6.
+        await _validate_url_is_safe("https://[2606:4700:4700::1111]/")
 
     @pytest.mark.asyncio
     async def test_blocked_url_rejected_by_fetch_url(self):
