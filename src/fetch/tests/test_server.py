@@ -12,6 +12,7 @@ from mcp_server_fetch.server import (
     check_may_autonomously_fetch_url,
     fetch_url,
     _validate_url_is_safe,
+    _configured_proxy_sources,
     DEFAULT_USER_AGENT_AUTONOMOUS,
 )
 
@@ -524,3 +525,37 @@ class TestValidateUrlIsSafe:
                 )
 
             mock_client.get.assert_not_called()
+
+
+class TestProxyDetection:
+    """Tests for detecting proxy settings that the SSRF guard cannot enforce."""
+
+    def test_no_proxy_configured(self, monkeypatch):
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            monkeypatch.delenv(name, raising=False)
+            monkeypatch.delenv(name.lower(), raising=False)
+        assert _configured_proxy_sources(None) == []
+
+    def test_detects_proxy_url_argument(self, monkeypatch):
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            monkeypatch.delenv(name, raising=False)
+            monkeypatch.delenv(name.lower(), raising=False)
+        assert _configured_proxy_sources("http://proxy:8080") == ["--proxy-url"]
+
+    def test_detects_uppercase_env_proxy(self, monkeypatch):
+        monkeypatch.setenv("HTTPS_PROXY", "http://proxy:8080")
+        assert "HTTPS_PROXY" in _configured_proxy_sources(None)
+
+    def test_detects_lowercase_env_proxy(self, monkeypatch):
+        # httpx honors the lowercase spellings too, via trust_env.
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv("all_proxy", "socks5://proxy:1080")
+        assert "ALL_PROXY" in _configured_proxy_sources(None)
+
+    def test_empty_env_proxy_is_not_a_proxy(self, monkeypatch):
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            monkeypatch.delenv(name, raising=False)
+            monkeypatch.delenv(name.lower(), raising=False)
+        monkeypatch.setenv("HTTP_PROXY", "")
+        assert _configured_proxy_sources(None) == []

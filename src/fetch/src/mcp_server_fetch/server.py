@@ -1,6 +1,8 @@
 import asyncio
 import ipaddress
+import os
 import socket
+import sys
 from typing import Annotated, Tuple
 from urllib.parse import urlparse, urlunparse
 
@@ -84,6 +86,22 @@ _SIXTOFOUR_NETWORK = ipaddress.ip_network("2002::/16")
 # Deprecated IPv6 site-local prefix (RFC 3879): still routed internally by some
 # stacks and not flagged by is_private, so it is blocked explicitly.
 _SITE_LOCAL_NETWORK = ipaddress.ip_network("fec0::/10")
+
+# Proxy environment variables httpx honors: AsyncClient defaults to
+# trust_env=True, so these route requests through a proxy even when no
+# --proxy-url is passed.
+_PROXY_ENV_VARS = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY")
+
+
+def _configured_proxy_sources(proxy_url: str | None) -> list[str]:
+    """Return the settings that will route requests through a proxy, if any."""
+    sources = ["--proxy-url"] if proxy_url else []
+    sources.extend(
+        name
+        for name in _PROXY_ENV_VARS
+        if os.environ.get(name) or os.environ.get(name.lower())
+    )
+    return sources
 
 
 def _is_blocked_ip(
@@ -391,6 +409,21 @@ async def serve(
         allow_internal_ips: Allow fetching loopback/private/link-local/metadata
             addresses (disables SSRF protection). Off by default.
     """
+    # The SSRF guard resolves each destination in this process, but a proxy
+    # resolves the hostname again for the forwarded request or CONNECT. The two
+    # answers can differ, so the guard cannot enforce the destination a proxy
+    # actually reaches. Warn rather than refuse, so existing proxy deployments
+    # keep working, and point at where enforcement has to live instead.
+    proxy_sources = _configured_proxy_sources(proxy_url)
+    if proxy_sources and not allow_internal_ips:
+        print(
+            f"WARNING: requests are routed through a proxy ({', '.join(proxy_sources)}), "
+            "so the SSRF guard cannot enforce the destination: the proxy resolves "
+            "hostnames itself and may reach an internal address this process "
+            "classified as public. Restrict internal destinations at the proxy.",
+            file=sys.stderr,
+        )
+
     server = Server("mcp-fetch")
     user_agent_autonomous = custom_user_agent or DEFAULT_USER_AGENT_AUTONOMOUS
     user_agent_manual = custom_user_agent or DEFAULT_USER_AGENT_MANUAL
