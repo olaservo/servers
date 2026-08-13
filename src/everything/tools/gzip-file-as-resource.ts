@@ -254,7 +254,10 @@ function ipv4FromHextets(hi: number, lo: number): string {
  * Determines whether an IPv6 address string must not be fetched. Addresses that
  * embed an IPv4 address (mapped, translated, IPv4-compatible, NAT64, 6to4) are
  * unwrapped and classified as IPv4, so an internal destination cannot be reached
- * by wrapping it in an IPv6 form that looks globally routable.
+ * by wrapping it in an IPv6 form that looks globally routable. Everything that
+ * survives unwrapping is then checked against global unicast (2000::/3) as an
+ * allow list, so an unlisted prefix fails closed rather than being treated as
+ * public.
  */
 function isBlockedIpv6(ip: string): boolean {
   const g = expandIpv6(ip.toLowerCase());
@@ -288,15 +291,18 @@ function isBlockedIpv6(ip: string): boolean {
   if (g[0] === 0x2002) return isBlockedIpv4(ipv4FromHextets(g[1], g[2]));
 
   const first = g[0];
-  if (first === 0x0064 && g[1] === 0xff9b && g[2] === 0x0001) return true; // 64:ff9b:1::/48 local-use NAT64
-  if (first === 0x0100 && g[1] === 0 && g[2] === 0 && g[3] === 0) return true; // 100::/64 discard-only
+  // Only 2000::/3 is assigned as global unicast. Blocking everything else
+  // covers the ranges that are not publicly routable without having to
+  // enumerate them - unique-local (fc00::/7), link-local (fe80::/10),
+  // site-local (fec0::/10), multicast (ff00::/8), discard-only (100::/64),
+  // local-use NAT64 (64:ff9b:1::/48), SRv6 SIDs (5f00::/16) - and, unlike a
+  // deny list, fails closed on reserved space such as 4000::/3 and on any
+  // prefix IANA assigns in future.
+  if ((first & 0xe000) !== 0x2000) return true;
+
+  // Carve-outs inside global unicast that are still not valid destinations.
   if (first === 0x2001 && (g[1] & 0xfe00) === 0) return true; // 2001::/23 IETF protocol assignments (incl. Teredo)
   if (first === 0x2001 && g[1] === 0x0db8) return true; // 2001:db8::/32 documentation
-  if (first === 0x5f00) return true; // 5f00::/16 SRv6 SIDs
-  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
-  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
-  if ((first & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated, still internal)
-  if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
 

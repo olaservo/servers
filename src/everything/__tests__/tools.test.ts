@@ -1251,6 +1251,12 @@ describe('Tools', () => {
       ['IPv6 site-local', 'http://[fec0::1]/'],
       ['IPv6 discard-only 100::/64', 'http://[100::1]/'],
       ['IPv6 Teredo 2001::/32', 'http://[2001::1]/'],
+      // Everything outside global unicast (2000::/3) is refused, so reserved
+      // space cannot be reached just because it is not individually listed.
+      ['IPv6 reserved 4000::/3', 'http://[4000::1]/'],
+      ['IPv6 reserved 8000::/2', 'http://[8000::1]/'],
+      ['IPv6 reserved 1000::/4', 'http://[1000::1]/'],
+      ['IPv6 reserved 0200::/7', 'http://[200::1]/'],
     ];
 
     for (const [label, url] of blockedHosts) {
